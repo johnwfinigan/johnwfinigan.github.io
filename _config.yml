@@ -12,7 +12,7 @@ title : John Finigan
 tagline: 
 author :
   name : John Finigan
-  email : mygithubusername@gmail.somc
+  email : mygithubusername@gmail.com
   github : johnwfinigan
   twitter : 
   feedburner : 
@@ -100,11 +100,11 @@ JB :
   # Set 'provider' to false to turn analytics off globally.
   #        
   analytics :
-    provider : false
+    provider : google
     gauges :
         site_id : 'SITE ID'
     google : 
-        tracking_id : 'UA-123-12'
+        tracking_id : 'UA-67616233-1'
     getclicky :
       site_id : 
     mixpanel :
