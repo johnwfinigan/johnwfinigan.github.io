@@ -177,9 +177,9 @@ Here's a log of me running through the beginning of the setup once the guest is 
              ***  run 'yast' to start the installation  ***
     
 
-At this, point, open a new terminal, but do *not* pass the -X flag to ssh, since it will try to do X forwarding of the installer, and it's painfully slow:
+At this, point, open a new terminal. SSH to locahost and not the reported 10.0.2.15 IP, since QEMU is forwarding the guest's port 22 to the host's port 10022. Do *not* pass the -X flag to ssh, since it will try to do X forwarding of the installer, and it's painfully slow.
 
-    $ ssh -p 10022 root@10.0.2.15
+    $ ssh -p 10022 root@localhost
     $ yast
 
 From here, it's a normal SUSE install. It will halt when it's finished, and you can then start qemu *without* the supplied kernel and initrd, since it will boot from the root disk now:
