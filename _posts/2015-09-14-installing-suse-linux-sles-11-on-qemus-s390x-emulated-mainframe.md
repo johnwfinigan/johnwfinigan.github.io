@@ -9,15 +9,15 @@ tags: [qemu, s390x, mainframe, SLES, Linux, emulation]
 
 Installing Linux on an emulated mainframe can be confusing unless you are already a mainframer and you have good install docs for your specific distro. The traditional choice of emulators is [Hercules](http://www.hercules-390.eu), but Hercules is written by mainframers, for mainframers, and there is a lot to learn if you want to build your config from scratch.
 
-Traditional mainframe Linux does not install or boot like amd64 linux. Hercules is designed to run traditional mainframe operating systems like z/OS, and so presents hardware to the guest that looks like what z/OS expects to see. There is a lot to understand if you just want to try your program on s390x Linux.
+Traditional mainframe Linux does not install or boot like amd64 Linux. Hercules is designed to run traditional mainframe operating systems like z/OS, and so presents hardware to the guest that looks like what z/OS expects to see. There is a lot to understand if you just want to try your program on s390x Linux.
 
-However, [QEMU](http://wiki.qemu.org/Main_Page) has gained some better s390x abilities recently due to IBM's adoption of KVM virtualization on z Systems as an alternative to z/VM. To enable this, QEMU's virtual IO has to work reasonably well for s390x Linux. Most importantly, recent QEMU has new virtio paravirtual IO devices for s390x linux, meaning that you do not need to configure emulated mainframe channel controllers and DASD anymore.
+However, [QEMU's](http://wiki.qemu.org/Main_Page) s390x abilities have improved recently due to IBM's adoption of KVM virtualization on z Systems as an alternative to z/VM. Most importantly, recent QEMU has new virtio paravirtual IO devices for s390x Linux, meaning that you do not need to configure emulated mainframe channel controllers and DASD.
 
 All of this would not help if mainframe QEMU was only useful for KVM. But it's not: the qemu-system-s390x emulator works just fine.
 
 I used QEMU 2.4, built from source. Everything else came with my Ubuntu 15.04 install. I doubt I would have figured any of this out without looking at this [SHARE presentation by Mark Post](https://share.confex.com/share/125/webprogram/Handout/Session17489/know.your.competition.pdf)
 
-In order for this to work, you will need a mainframe linux distro that supports virtio mainframe disk and network. Since this is a recent addition, most mainframe linux distros do *not* have a kernel that supports it. SUSE Linux Enterprise Server 11 SP4 is new enough. You can get a [trial here](https://www.suse.com/products/server/download/)
+In order for this to work, you will need a mainframe Linux distro that supports virtio mainframe disk and network. Since this is a recent addition, most mainframe Linux distros do *not* have a kernel that supports it. SUSE Linux Enterprise Server 11 SP4 is new enough. You can get a [trial here](https://www.suse.com/products/server/download/)
 
 Too new may also not work: [Apparently RHEL 7 and SLES 12 won't](https://lists.gnu.org/archive/html/qemu-devel/2015-08/msg03884.html). The whole linked discussion is worth reading.
 
