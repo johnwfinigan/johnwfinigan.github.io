@@ -192,3 +192,8 @@ From here, it's a normal SUSE install. It will halt when it's finished, and you 
       -device virtio-net-ccw,netdev=mynet0,id=net0,mac=08:00:2F:00:11:22,devno=fe.0.0001
 
 It will ask you to run  /usr/lib/YaST2/startup/YaST2.ssh , and after that is finished, you can reboot into a working system. Enjoy!
+
+
+
+
+![CC-BY-NC-SA](https://raw.githubusercontent.com/johnwfinigan/johnwfinigan.github.io/master/assets/cc-by-nc-sa.png)
