@@ -1,9 +1,10 @@
 ---
 layout: post
-title: "Installing Nagios from epel on Centos 7, with Gmail notifications"
+title: "Minimum viable install: Nagios from epel on Centos 7, with Gmail notifications"
+
 description: ""
 category: 
-tags: [nagios, centos7, rhel, monitoring]
+tags: [nagios, centos 7, rhel, monitoring, minimum viable]
 ---
 {% include JB/setup %}
 
@@ -83,13 +84,61 @@ Next, edit /etc/nagios/objects/contacts.cfg
             email                           sysadmin@example.com   <--CHANGE THIS!
      }
 
-Test your config. You will do this a lot:
-
-    /usr/sbin/nagios -v /etc/nagios/nagios.cfg
-
 Next, we'll need to define some things to monitor. By defauly, what you put in /etc/nagios/conf.d/ gets monitored.
 
     cd /etc/nagios/conf.d
 
-Here's one barebones layout, as an example:
+This directory starts empty and you can add config files organized however you like. Here's one barebones layout, as an example. Don't copy and paste, since the hostnames are up to you.
+
+Contents of file /etc/nagios/conf.d/hosts.cfg
+
+    define hostgroup{
+            hostgroup_name  all-servers ; The name of the hostgroup
+            alias           All Servers ; Long name of the group
+    }
+    
+    define host{
+            use             linux-server            ; Inherit default values from a template
+            host_name       myserver.example.com    ; The name we're giving to this host
+            alias           myserver                ; A longer name associated with the host
+            address         10.0.0.10
+            hostgroups      all-servers             ; Host groups this host is associated with
+    }
+
+
+Contents of file /etc/nagios/conf.d/ssh.cfg
+
+    define service{
+    	use		        generic-service		; Inherit default values from a template
+    	host_name		myserver.example.com
+    	service_description	SSH
+    	check_command	        check_ssh
+    }
+
+Contents of file /etc/nagios/conf.d/http.cfg
+
+    define service{
+    	use		        generic-service		; Inherit default values from a template
+    	host_name		myserver.example.com
+    	service_description	HTTP
+    	check_command	        check_http
+    }
+
+    define service{
+    	use		        generic-service		; Inherit default values from a template
+    	host_name		myserver.example.com
+    	service_description	HTTP
+    	check_command	        check_http!-S -H mysite.example.com  ; checks https on a different virtual host
+    }
+
+Important fact: these check commands live in /usr/lib64/nagios/plugins, and can be run manually, including to get help.
+
+    /usr/lib64/nagios/plugins/check_http -h
+
+
+Test your config. If it works, restart Nagios to pick up config file changes. You will do this a lot.
+
+    /usr/sbin/nagios -v /etc/nagios/nagios.cfg
+    service nagios restart
+
 
