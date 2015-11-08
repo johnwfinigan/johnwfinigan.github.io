@@ -10,8 +10,6 @@ tags: [nagios, centos 7, rhel, monitoring, minimum viable]
 
 This is how I got basic Nagios running on Centos 7, using the Nagios 3.5.1 packages in [EPEL](https://fedoraproject.org/wiki/EPEL). This is basically a reinterpretation of the guide at the [Nagios Fedora Quickstart](https://assets.nagios.com/downloads/nagioscore/docs/nagioscore/3/en/quickstart-fedora.html), except we are installing from packages and not source, and a lot of the paths and commands in Centos 7 are different.
 
-Important - this all assmes that selinux is disabled. It will not work if selinux is enforcing. To check and change your selinux settings, edit /etc/sysconfig/selinux. We also assume that the machine you are working on is freshly installed and dedicated to Nagios.
-
 First, to get a basic install running:
 
 ###As root:
