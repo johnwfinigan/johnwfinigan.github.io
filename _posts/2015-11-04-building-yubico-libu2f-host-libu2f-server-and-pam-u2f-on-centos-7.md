@@ -35,16 +35,18 @@ Ubuntu-centric. Here is how I got [pam-u2f](https://developers.yubico.com/pam-u2
      sudo yum -y groupinstall "Development Tools"                                  
      sudo rpm -i https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
      sudo yum -y install pam-devel gtk-doc help2man json-c-devel hidapi-devel gengetopt openssl-devel check-devel
+
+     mkdir ~/yubi-build
                                                                                    
      #help2adoc is only required for make check on u2f server to pass           
-     cd                                                                         
+     cd  ~/yubi-build
      git clone https://github.com/klali/help2adoc.git                           
      cd help2adoc                                                               
      sudo yum -y install asciidoc #only needed for help2adoc                    
      make                                                                       
      sudo make install                                                          
-                                                                                
-     cd                                                                         
+                                                                       
+     cd  ~/yubi-build
      git clone git://github.com/Yubico/libu2f-host.git                          
      cd libu2f-host                                                             
      make                                                                       
@@ -52,7 +54,7 @@ Ubuntu-centric. Here is how I got [pam-u2f](https://developers.yubico.com/pam-u2
      make check                                                                 
      sudo make install                                                          
                                                                                 
-     cd                                                                         
+     cd  ~/yubi-build
      git clone git://github.com/Yubico/libu2f-server.git                        
      cd libu2f-server                                                           
      autoreconf --install                                                       
@@ -60,7 +62,7 @@ Ubuntu-centric. Here is how I got [pam-u2f](https://developers.yubico.com/pam-u2
      make check                                                                 
      sudo make install                                                          
                                                                                 
-     cd                                                                         
+     cd  ~/yubi-build
      git clone git://github.com/Yubico/pam-u2f.git                              
      cd pam-u2f                                                                 
      export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig                            
