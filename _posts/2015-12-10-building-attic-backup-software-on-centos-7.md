@@ -46,5 +46,5 @@ If you have ssh key authentication set up and do not password protect your attic
 as a cron job. But these are just samples -- be sure to read the [Attic Documentation](https://attic-backup.org/index.html)
 before deploying. (And test, test, test your restores!)
 
-Bonus: If you're running the destination server, you can constrain the client's attic
-backup user using SELinux. See [Major Hayden's blog post on constraining users](https://major.io/2013/07/05/confine-untrusted-users-including-your-children-with-selinux/) - SELinux guest_u works fine for me.
+Bonus: If you're running the destination server, you can confine the client's attic
+backup user using SELinux. See [Major Hayden's blog post on confining users](https://major.io/2013/07/05/confine-untrusted-users-including-your-children-with-selinux/) - SELinux guest_u works fine for me.
