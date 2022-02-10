@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="simple.css" />
+<meta name="date" scheme="YYYY-MM-DD" content="2015-09-14" />
+<title>Installing SUSE Linux SLES 11 on qemu&#8217;s s390x emulated mainframe with virtio</title>
+</head>
+<body>
+
+  <header>
+    <h1>johnwfinigan.github.io</h1>
+  </header>
+
+<main>
+
+
+<h2 id="Installing%20SUSE%20Linux%20SLES%2011%20on%20qemu&amp;#8217;s%20s390x%20emulated%20mainframe%20with%20virtio">Installing SUSE Linux SLES 11 on qemu&#8217;s s390x emulated mainframe with virtio</h2>
+
+<p>(Historical post - this is outdated, but parts are likely still useful)</p>
+
+<p>Installing Linux on an emulated mainframe can be confusing unless you are already a mainframer and you have good install docs for your specific distro. The traditional choice of emulators is <a href="http://www.hercules-390.eu">Hercules</a>, but Hercules is written by mainframers, for mainframers, and there is a lot to learn if you want to build your config from scratch.</p>
+
+<p>Traditional mainframe Linux does not install or boot like amd64 Linux. Hercules is designed to run traditional mainframe operating systems like z&#47;OS, and so presents hardware to the guest that looks like what z&#47;OS expects to see. There is a lot to understand if you just want to try your program on s390x Linux.</p>
+
+<p>However, <a href="http://wiki.qemu.org/Main_Page">QEMU&#8217;s</a> s390x abilities have improved recently due to IBM&#8217;s adoption of KVM virtualization on z Systems as an alternative to z&#47;VM. Most importantly, recent QEMU has new virtio paravirtual IO devices for s390x Linux, meaning that you do not need to configure emulated mainframe channel controllers and DASD.</p>
+
+<p>All of this would not help if mainframe QEMU was only useful for KVM. But it&#8217;s not: the qemu-system-s390x emulator works just fine.</p>
+
+<p>I used QEMU 2.4, built from source. Everything else came with my Ubuntu 15.04 install. I doubt I would have figured any of this out without looking at this <a href="https://share.confex.com/share/125/webprogram/Handout/Session17489/know.your.competition.pdf">SHARE presentation by Mark Post</a></p>
+
+<p>In order for this to work, you will need a mainframe Linux distro that supports virtio mainframe disk and network. Since this is a recent addition, most mainframe Linux distros do <em>not</em> have a kernel that supports it. SUSE Linux Enterprise Server 11 SP4 is new enough. You can get a <a href="https://www.suse.com/products/server/download/">trial here</a></p>
+
+<p>Too new may also not work: <a href="https://lists.gnu.org/archive/html/qemu-devel/2015-08/msg03884.html">Apparently RHEL 7 and SLES 12 won&#8217;t</a>. The whole linked discussion is worth reading.</p>
+
+<p>Finally, it&#8217;s convenient to do the install over HTTP since real mainframes rarely install from CD, so CD is not the path of least resistance.</p>
+
+<p>To prep, get yourself a copy of the SUSE ISO and create a virtual disk file for your root drive:</p>
+
+<pre><code>$ mkdir $HOME&#47;qemu.test ; cd $HOME&#47;qemu.test
+$ qemu-img create -f qcow2 SLES-11-SP4-s390x.qcow2 20G
+$ ls
+SLES-11-SP4-DVD-s390x-GM-DVD1.iso  SLES-11-SP4-s390x.qcow2
+</code></pre>
+
+<p>Now, you will need an initrd and kernel to start QEMU with. The initrd is on the ISO, but we have to work a little for the kernel:</p>
+
+<pre><code>$ mkdir mnt
+$ sudo mount .&#47;SLES-11-SP4-DVD-s390x-GM-DVD1.iso .&#47;mnt
+$ cp mnt&#47;boot&#47;s390x&#47;initrd .
+$ mkdir junk ; cd junk
+$ rpm2cpio ..&#47;mnt&#47;suse&#47;s390x&#47;kernel-default-base-3.0.101-63.1.s390x.rpm | cpio -ivd 
+$ zcat boot&#47;vmlinux-3.0.101-63-default.gz &#62; ..&#47;kernel
+$ cd .. ; rm -rf junk
+</code></pre>
+
+<p>Finally, serve the install disk&#8217;s contents locally using HTTP:</p>
+
+<pre><code>$ cd .&#47;mnt ; python -m SimpleHTTPServer
+</code></pre>
+
+<p>Now, in a new terminal, the moment we&#8217;ve all been waiting for::</p>
+
+<pre><code>$ cd $HOME&#47;qemu.test
+$ qemu-system-s390x -M s390-ccw-virtio -m 1024 -smp 1 -nographic \
+  -drive file=SLES-11-SP4-s390x.qcow2,format=qcow2,if=none,id=drive-virtio-disk0 \
+  -device virtio-blk-ccw,drive=drive-virtio-disk0,id=virtio-disk0 \
+  -netdev user,id=mynet0,hostfwd=tcp::10022-:22 \
+  -device virtio-net-ccw,netdev=mynet0,id=net0,mac=08:00:2F:00:11:22,devno=fe.0.0001 \
+  -kernel .&#47;kernel -initrd .&#47;initrd
+</code></pre>
+
+<p>A couple of networking notes: We are using QEMU&#8217;s &#8220;user&#8221; networking option here, which uses QEMU&#8217;s internal NAT gateway and DHCP server, but is slow. It is zero setup though, which is why we&#8217;re using it. The hostfwd=tcp::10022-:22 argument forwards port 22 (SSH) on the guest to port 10022 on the host. The MAC address is in PR1ME&#8217;s space, so make sure it does not conflict with any <a href="https://en.wikipedia.org/wiki/PRIMOS">PRIMOS</a> systems you may be running.</p>
+
+<p>Here&#8217;s a log of me running through the beginning of the setup once the guest is booted. 10.0.2.2 is QEMU&#8217;s emulated router and maps to the host.</p>
+
+<pre><code>&#62;&#62;&#62; Linuxrc v3.3.108 (Kernel 3.0.101-63-default) &#60;&#60;&#60;
+
+Main Menu
+
+0) &#60;-- Back &#60;--
+1) Start Installation          
+2) Settings               
+3) Expert                
+4) Exit or Reboot            
+
+&#62; 1
+
+Start Installation
+
+0) &#60;-- Back &#60;--
+1) Start Installation or Update      
+2) Boot Installed System         
+3) Start Rescue System          
+
+&#62; 1
+
+Choose the source medium.
+
+0) &#60;-- Back &#60;--
+1) DVD &#47; CD-ROM          
+2) Network             
+
+&#62; 2
+
+Choose the network protocol.
+
+0) &#60;-- Back &#60;--
+1) FTP               
+2) HTTP              
+3) HTTPS              
+4) NFS               
+5) SMB &#47; CIFS (Windows Share)   
+6) TFTP              
+
+&#62; 2
+Detecting and loading network drivers
+
+Automatic configuration via DHCP?
+
+0) &#60;-- Back &#60;--
+1) Yes
+2) No
+
+&#62; 1
+Sending DHCP request...
+8021q: adding VLAN 0 to HW filter on device eth0
+
+Enter the IP address of the HTTP server. (Enter &#39;+++&#39; to abort).
+&#62; 10.0.2.2:8000
+
+Enter the directory on the server. (Enter &#39;+++&#39; to abort).
+[&#47;]&#62; 
+
+Do you need a username and password to access the HTTP server?
+
+0) &#60;-- Back &#60;--
+1) Yes
+2) No
+
+&#62; 2
+
+Use a HTTP proxy?
+
+0) &#60;-- Back &#60;--
+1) Yes
+2) No
+
+&#62; 2
+Loading Installation System (1&#47;6) -      100%
+squashfs: version 4.0 (2009&#47;01&#47;31) Phillip Lougher
+Loading Installation System (2&#47;6) -      100%
+Loading Installation System (3&#47;6) -      100%
+Loading Installation System (4&#47;6) -      100%
+Loading Installation System (5&#47;6) -      100%
+Loading Installation System (6&#47;6) -      100%
+Reading Driver Update...
+
+No new Driver Updates found
+
+Select the display type.
+
+0) &#60;-- Back &#60;--
+1) X11               
+2) VNC               
+3) SSH               
+4) ASCII Console          
+
+&#62; 3
+
+Enter your temporary SSH password. (Enter &#39;+++&#39; to abort).
+&#62; (doesn&#39;t echo, you&#39;ll need this below)
+
+starting hald... ok
+starting syslogd (logging to &#47;dev&#47;tty4)... ok
+starting klogd... ok
+sshd found, prepare remote login
+generating SSH keys  ...  
+ssh-keygen: generating new host keys: RSA1 RSA DSA ECDSA ED25519 
+Starting SSH daemon  ...  
+
+eth0: &#60;BROADCAST,MULTICAST,UP,LOWER_UP&#62; mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link&#47;ether 08:00:2f:00:11:22 brd ff:ff:ff:ff:ff:ff
+        inet 10.0.2.15&#47;24 brd 10.0.2.255 scope global eth0
+        inet6 fe80::a00:2fff:fe00:1122&#47;64 scope link 
+               valid_lft forever preferred_lft forever
+
+         ***  sshd has been started  ***
+
+
+         ***  login using &#39;ssh -X root@10.0.2.15&#39;  ***
+         ***  run &#39;yast&#39; to start the installation  ***
+</code></pre>
+
+<p>At this, point, open a new terminal. SSH to locahost and not the reported 10.0.2.15 IP, since QEMU is forwarding the guest&#8217;s port 22 to the host&#8217;s port 10022. Do <em>not</em> pass the -X flag to ssh, since it will try to do X forwarding of the installer, and it&#8217;s painfully slow.</p>
+
+<pre><code>$ ssh -p 10022 root@localhost
+$ yast
+</code></pre>
+
+<p>From here, it&#8217;s a normal SUSE install. It will halt when it&#8217;s finished, and you can then start qemu <em>without</em> the supplied kernel and initrd, since it will boot from the root disk now:</p>
+
+<pre><code>$ qemu-system-s390x -M s390-ccw-virtio -m 1024 -smp 1 -nographic \
+  -drive file=SLES-11-SP4-s390x.qcow2,format=qcow2,if=none,id=drive-virtio-disk0 \
+  -device virtio-blk-ccw,drive=drive-virtio-disk0,id=virtio-disk0 \
+  -netdev user,id=mynet0,hostfwd=tcp::10022-:22 \
+  -device virtio-net-ccw,netdev=mynet0,id=net0,mac=08:00:2F:00:11:22,devno=fe.0.0001
+</code></pre>
+
+<p>It will ask you to run  &#47;usr&#47;lib&#47;YaST2&#47;startup&#47;YaST2.ssh , and after that is finished, you can reboot into a working system. Enjoy!</p>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2021 John Finigan</p>
+</footer>
+</body>
+</html>
