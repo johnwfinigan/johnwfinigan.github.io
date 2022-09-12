@@ -2,9 +2,9 @@
 
 set -eu
 
-
-t1=$(mktemp)
-t2=$(mktemp)
+temp_index_md=$(mktemp)
+temp_html=$(mktemp)
+temp_index=$(mktemp)
 mkdir -p dst
 
 
@@ -18,18 +18,18 @@ for md in src/*.md ; do
   # delete last 2 lines (/body /html) for custom footer
   lowdown -s "$md" | \
     perl -pe 's/^<body>$/`cat src\/header`/e' | \
-    sed '$d' | sed '$d' > "$t1"
+    sed '$d' | sed '$d' > "$temp_html"
 
   # create html filename, append source page and footer
   htm=$(basename "$md" .md).html
-  cat "$t1" src/footer > "dst/${htm}"
+  cat "$temp_html" src/footer > "dst/${htm}"
 
 
   # create input for index generator
   # index input is markdown format
   day=$(lowdown -X date "$md")
   title=$(lowdown -X title "$md")
-  printf "* %s: [%s](%s)\n" "$day" "$title" "${htm}" >> "$t2"
+  printf "* %s: [%s](%s)\n" "$day" "$title" "${htm}" >> "$temp_index"
 
 done
 
@@ -37,23 +37,23 @@ done
 #
 # index page generation
 #
-cat <<HERE > "$t1"
+cat <<HERE > "$temp_index_md"
 title: Index
 css: simple.css
 
 HERE
 
 # sort index entries by date
-sort -r -k1 -t: "$t2" >> "$t1"
+sort -r -k1 -t: "$temp_index" >> "$temp_index_md"
 
 # make html index page
-lowdown -s "$t1" | \
+lowdown -s "$temp_index_md" | \
   perl -pe 's/^<body>$/`cat src\/header`/e' | \
-  sed '$d' | sed '$d' > "$t2"
-cat "$t2" src/footer > "dst/index.html"
+  sed '$d' | sed '$d' > "$temp_html"
+cat "$temp_html" src/footer > "dst/index.html"
 
 
 
-rm -f "$t1" "$t2"
+rm -f "$temp_index_md" "$temp_index" "$temp_html"
 
 cp dst/*.html .
