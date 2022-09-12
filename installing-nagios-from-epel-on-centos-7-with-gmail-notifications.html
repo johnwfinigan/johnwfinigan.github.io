@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<link rel="stylesheet" href="simple.css" />
 <meta name="date" scheme="YYYY-MM-DD" content="2015-09-17" />
+<link rel="stylesheet" href="simple.css" />
 <title>Minimum viable install: Nagios from epel on Centos 7, with Gmail notifications</title>
 </head>
 <body>
@@ -16,7 +16,7 @@
 <main>
 
 
-<h2 id="Minimum%20viable%20install:%20Nagios%20from%20epel%20on%20Centos%207,%20with%20Gmail%20notifications">Minimum viable install: Nagios from epel on Centos 7, with Gmail notifications</h2>
+<h2 id="minimum-viable-install-nagios-from-epel-on-centos-7-with-gmail-notifications">Minimum viable install: Nagios from epel on Centos 7, with Gmail notifications</h2>
 
 <p>(Historical post - this is outdated, but parts are likely still useful. It begs for scripting and templating)</p>
 
@@ -24,7 +24,7 @@
 
 <p>First, to get a basic install running:</p>
 
-<h3 id="As%20root:">As root:</h3>
+<h3 id="as-root">As root:</h3>
 
 <pre><code> rpm -i https:&#47;&#47;dl.fedoraproject.org&#47;pub&#47;epel&#47;epel-release-latest-7.noarch.rpm
  yum install  mod_ssl git nagios*
@@ -39,7 +39,7 @@
 
 <p>You can&#8217;t add the permanent firewalld rules unless firewalld is already running, so we started it.</p>
 
-<h3 id="Next,%20edit%20&amp;#47;etc&amp;#47;httpd&amp;#47;conf.d&amp;#47;nagios.conf">Next, edit &#47;etc&#47;httpd&#47;conf.d&#47;nagios.conf</h3>
+<h3 id="next-edit-etchttpdconf.dnagios.conf">Next, edit &#47;etc&#47;httpd&#47;conf.d&#47;nagios.conf</h3>
 
 <pre><code> Remove 2 instances of:
 
@@ -57,7 +57,7 @@
 
 <p>This accomplishes two things. Firstly, it changes the HTTP authentication method so passwords are never sent in cleartext, but rather in hashed form. Secondly, and optionally, it denies access to Nagios over http, and enforces the use of https. Edit &#47;etc&#47;httpd&#47;conf.d&#47;ssl.conf to point it to a signed ssl certificate if desired.</p>
 
-<h3 id="As%20root:-2">As root:</h3>
+<h3 id="as-root-1">As root:</h3>
 
 <p>In order to use digest passwords instead of plaintext passwords, we have to create the digest password file:</p>
 
@@ -75,7 +75,7 @@
 
 <p>At this point you should be able to log in to Nagios on both http and https.</p>
 
-<h3 id="Next,%20edit%20&amp;#47;etc&amp;#47;nagios&amp;#47;objects&amp;#47;contacts.cfg">Next, edit &#47;etc&#47;nagios&#47;objects&#47;contacts.cfg</h3>
+<h3 id="next-edit-etcnagiosobjectscontacts.cfg">Next, edit &#47;etc&#47;nagios&#47;objects&#47;contacts.cfg</h3>
 
 <pre><code>Find the line containing CHANGE THIS TO YOUR EMAIL ADDRESS , and do what it asks.
 
@@ -101,7 +101,7 @@ define contact {
  }
 </code></pre>
 
-<h3 id="Define%20some%20things%20to%20monitor">Define some things to monitor</h3>
+<h3 id="define-some-things-to-monitor">Define some things to monitor</h3>
 
 <p>By default, what you put in &#47;etc&#47;nagios&#47;conf.d&#47; gets monitored.</p>
 
@@ -158,7 +158,7 @@ define service{
 <pre><code>&#47;usr&#47;lib64&#47;nagios&#47;plugins&#47;check_http -h
 </code></pre>
 
-<h3 id="Test%20your%20config">Test your config</h3>
+<h3 id="test-your-config">Test your config</h3>
 
 <p>If it works, restart Nagios to pick up config file changes. You will do this a lot.</p>
 
@@ -166,7 +166,7 @@ define service{
 service nagios restart
 </code></pre>
 
-<h3 id="Gmail%20Notifications">Gmail Notifications</h3>
+<h3 id="gmail-notifications">Gmail Notifications</h3>
 
 <p>Finally, let&#8217;s get some notifications going. Nagios is ready to notify as soon as we have a working mta. I use gmail, and don&#8217;t want to run a real MTA like sendmail. Taking inspiration from <a href="http://sharadchhetri.com/2013/07/16/how-to-use-email-id-of-gmail-for-sending-nagios-email-alerts/">here</a>, we will use the ssmtp &#8220;send-only sendmail emulator&#8221;, but moving around binaries like in the linked post makes me nervous since the moves will be clobbered by future Centos updates, so we&#8217;ll use the alternatives system to subsititute ssmtp for sendmail instead.</p>
 
@@ -185,12 +185,12 @@ mailhub=smtp.gmail.com:587
 UseSTARTTLS=YES
 </code></pre>
 
-<h3 id="Done!">Done!</h3>
+<h3 id="done">Done!</h3>
 
 <p>This is a start anyway. You can spend as much time as you like refining your config; if anything, the difficulty in getting started is that there are so many options.</p>
 </main>
 <footer>
-  <p>Copyright &copy 2015-2021 John Finigan</p>
+  <p>Copyright &copy 2015-2022 John Finigan</p>
 </footer>
 </body>
 </html>
