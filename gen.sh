@@ -8,6 +8,7 @@ temp_index_md=$(mktemp)
 temp_index_sorted=$(mktemp)
 temp_sitemap=$(mktemp)
 mkdir -p dst
+rm -f dst/*.html
 
 #
 # content pages generation
