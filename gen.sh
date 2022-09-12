@@ -6,6 +6,7 @@ temp_index_md=$(mktemp)
 temp_html=$(mktemp)
 temp_index=$(mktemp)
 temp_index_sorted=$(mktemp)
+temp_sitemap=$(mktemp)
 mkdir -p dst
 
 
@@ -46,7 +47,7 @@ HERE
 # sort index entries by date
 sort -r -k1 -t^ "$temp_index" > "$temp_index_sorted"
 # create markdown from sorted index
-awk -F^ '{printf "* %s: [%s](%s)\n", $1, $2, $3}' < "$temp_index_sorted" >> "$temp_index_md"
+awk -F^ '{ printf "* %s: [%s](%s)\n", $1, $2, $3 }' < "$temp_index_sorted" >> "$temp_index_md"
 
 # make html index page
 lowdown -s "$temp_index_md" | \
@@ -54,8 +55,17 @@ lowdown -s "$temp_index_md" | \
   sed '$d' | sed '$d' > "$temp_html"
 cat "$temp_html" src/footer > "dst/index.html"
 
+#
+# site map generation
+#
+cat src/sitemapheader > "$temp_sitemap"
+siteurl="$(head -n1 src/siteurl)"
+awk -F^ -v site="$siteurl" '{ printf "  <url>\n    <loc>%s%s</loc>\n  </url>\n", site, $3 }' < "$temp_index_sorted" >> "$temp_sitemap"
+echo '</urlset>' >> "$temp_sitemap"
+cat "$temp_sitemap" > sitemap.xml
 
 
-rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_html"
+
+rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_html" "$temp_sitemap"
 
 cp dst/*.html .
