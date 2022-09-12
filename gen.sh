@@ -2,9 +2,9 @@
 
 set -eu
 
-temp_index_md=$(mktemp)
 temp_html=$(mktemp)
 temp_index=$(mktemp)
+temp_index_md=$(mktemp)
 temp_index_sorted=$(mktemp)
 temp_sitemap=$(mktemp)
 mkdir -p dst
@@ -13,7 +13,6 @@ mkdir -p dst
 # content pages generation
 #
 for md in src/*.md; do
-
   # convert md to html
   # replace body tag with custom header for css
   # delete last 2 lines (/body /html) for custom footer
@@ -29,7 +28,6 @@ for md in src/*.md; do
   day=$(lowdown -X date "$md")
   title=$(lowdown -X title "$md")
   printf "%s^%s^%s\n" "$day" "$title" "${htm}" >>"$temp_index"
-
 done
 
 #
@@ -61,6 +59,8 @@ awk -F^ -v site="$siteurl" '{ printf "  <url>\n    <loc>%s%s</loc>\n  </url>\n",
 echo '</urlset>' >>"$temp_sitemap"
 cat "$temp_sitemap" >sitemap.xml
 
+#
+# cleanup and deploy
+#
 rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_html" "$temp_sitemap"
-
 cp dst/*.html .
