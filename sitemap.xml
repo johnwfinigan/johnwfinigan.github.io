@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://johnwfinigan.github.io/Firewalling-Linux-NFS-Servers-and-OpenBSD-NFS-Clients.html</loc>
+  </url>
+  <url>
     <loc>https://johnwfinigan.github.io/installing-nagios-from-epel-on-centos-7-with-gmail-notifications.html</loc>
   </url>
   <url>
