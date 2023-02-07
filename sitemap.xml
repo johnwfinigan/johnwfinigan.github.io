@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://johnwfinigan.github.io/Creating-a-Minimal-deb-Repo-From-Scratch.html</loc>
+  </url>
+  <url>
     <loc>https://johnwfinigan.github.io/Firewalling-Linux-NFS-Servers-and-OpenBSD-NFS-Clients.html</loc>
   </url>
   <url>

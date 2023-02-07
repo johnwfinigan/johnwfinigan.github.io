@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="date" scheme="YYYY-MM-DD" content="2023-02-05" />
+<link rel="stylesheet" href="simple.css" />
+<title>Creating a Minimal apt Repo From Scratch</title>
+</head>
+<body>
+
+  <header>
+    <h1>johnwfinigan.github.io</h1>
+  </header>
+
+<main>
+
+
+<h2 id="creating-a-minimal-apt-repo-from-scratch">Creating a Minimal apt Repo From Scratch</h2>
+
+<p>Let&#8217;s say you want to create an apt repo for debs you have built yourself. I spent an hour or two cobbling together these minimalist instructions from various internet sources. The sources I found seemed to be either outdated enough that they were no longer correct for recent tooling and distros, or more complex than what I was trying to accomplish warranted. This is tested against Ubuntu 22.04 clients and servers. Notably, this method has no directory structure inside the repo at all. All files are under the top level directory of the repo. </p>
+
+<h3 id="create-a-gpg-key-for-signing">Create a gpg key for signing</h3>
+
+<p>Use the gpg shipped with Ubuntu 22.04 or whatever client distro you plan to support. Set the <code>Real Name</code> field of your key to whatever you like. Here, it&#8217;s called <code>Mirror Signing Key</code>. Once generated, export your key using the fingerprint shown when it was generated.</p>
+
+<pre><code>gpg --armor --export 73341B91FEC7DCBC8316EE01E45BEE2E63B81095 &#62; MirrorSigningKey.pub
+</code></pre>
+
+<p>This exported key will be copied to your apt clients for apt metadata verification.</p>
+
+<p>Example gpg session at the bottom of this post. In short, it&#8217;s OK to choose <code>RSA and RSA</code>, and set RSA key size to 4096.</p>
+
+<h3 id="populate-your-repo">Populate your repo</h3>
+
+<p>Put your debs in a directory that you intend to serve to your clients. Here, it&#8217;s called <code>$repo_dir</code></p>
+
+<h3 id="install-repo-build-tools">Install repo build tools</h3>
+
+<p>Ensure you have the packages <code>dpkg-deb</code> and <code>apt-utils</code> installed, for the next step.</p>
+
+<h3 id="create-your-apt-repo">Create your apt repo</h3>
+
+<pre><code>#!&#47;bin&#47;bash
+
+set -eu
+
+repo_dir=&#47;path&#47;to&#47;your&#47;repo&#47;directory
+cd "$repo_dir"
+
+rm -vf Release Release.gpg InRelease
+dpkg-scanpackages --arch amd64 . &#62; Packages
+apt-ftparchive release . &#62; Release
+
+echo Enter Passphrase
+read pass
+gpg  --pinentry-mode loopback --digest-algo SHA512 --batch --yes --no-tty --passphrase $pass --default-key &#39;Mirror Signing Key&#39; -abs &#60; Release &#62; Release.gpg
+gpg  --pinentry-mode loopback --digest-algo SHA512 --batch --yes --no-tty --passphrase $pass --default-key &#39;Mirror Signing Key&#39; -abs --clearsign &#60; Release &#62; InRelease
+unset pass
+</code></pre>
+
+<p>The awkward method of getting the passphrase to gpg is not appropriate for use on untrusted systems, since the passphrase can be read out of <code>&#47;proc</code> while gpg is executing. Proper gpg pin entry methods seem especially fragile on headless systems, and after an hour of frustration trying to debug pinentry, I resorted to it. Someone with better gpg skills could do better. On the other hand, it&#8217;s easy to see how this could be modified to work with a secret manager in a CI system - just replace the <code>read</code> call with a call to your secret manager.</p>
+
+<h3 id="set-up-your-clients">Set up your clients</h3>
+
+<p>On your clients, create the repo definition file and the public signing key file in <code>&#47;etc&#47;apt</code></p>
+
+<pre><code>install -o root -g root -m0644 &#60;(echo &#39;deb [signed-by=&#47;etc&#47;apt&#47;trusted.gpg.d&#47;MirrorSigningKey.pub] https:&#47;&#47;example.org&#47;your&#47;repo .&#47;&#39;) &#47;etc&#47;apt&#47;sources.list.d&#47;your_repo.list
+
+install -o root -g root -m0644 MirrorSigningKey.pub &#47;etc&#47;apt&#47;trusted.gpg.d&#47;
+</code></pre>
+
+<p>Note that I&#8217;m using <code>install</code> here as an all-in-one way to copy data while ensuring that permissions are reasonable. Your preferred way to do that should be fine, regardless.</p>
+
+<h3 id="done">Done</h3>
+
+<p>When you add, update, or remove packages from your repo, simply rerun the repo generation script above.</p>
+
+<h3 id="appendix-gpg-sample-session">Appendix: GPG sample session</h3>
+
+<pre><code>john@s:~$ gpg --full-generate-key
+gpg (GnuPG) 2.2.27; Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+gpg: directory &#39;&#47;home&#47;john&#47;.gnupg&#39; created
+gpg: keybox &#39;&#47;home&#47;john&#47;.gnupg&#47;pubring.kbx&#39; created
+Please select what kind of key you want:
+   (1) RSA and RSA (default)
+   (2) DSA and Elgamal
+   (3) DSA (sign only)
+   (4) RSA (sign only)
+  (14) Existing key from card
+Your selection? 1
+RSA keys may be between 1024 and 4096 bits long.
+What keysize do you want? (3072) 4096
+Requested keysize is 4096 bits
+Please specify how long the key should be valid.
+         0 = key does not expire
+      &#60;n&#62;  = key expires in n days
+      &#60;n&#62;w = key expires in n weeks
+      &#60;n&#62;m = key expires in n months
+      &#60;n&#62;y = key expires in n years
+Key is valid for? (0) 
+Key does not expire at all
+Is this correct? (y&#47;N) y
+
+GnuPG needs to construct a user ID to identify your key.
+
+Real name: Mirror Signing Key
+Email address: mirrorsignkey@example.org
+Comment: 
+You selected this USER-ID:
+    "Mirror Signing Key &#60;mirrorsignkey@example.org&#62;"
+
+Change (N)ame, (C)omment, (E)mail or (O)kay&#47;(Q)uit? O
+We need to generate a lot of random bytes. It is a good idea to perform
+some other action (type on the keyboard, move the mouse, utilize the
+disks) during the prime generation; this gives the random number
+generator a better chance to gain enough entropy.
+
+
+gpg: &#47;home&#47;john&#47;.gnupg&#47;trustdb.gpg: trustdb created
+gpg: key E45BEE2E63B81095 marked as ultimately trusted
+gpg: directory &#39;&#47;home&#47;john&#47;.gnupg&#47;openpgp-revocs.d&#39; created
+gpg: revocation certificate stored as &#39;&#47;home&#47;john&#47;.gnupg&#47;openpgp-revocs.d&#47;73341B91FEC7DCBC8316EE01E45BEE2E63B81095.rev&#39;
+public and secret key created and signed.
+
+pub   rsa4096 2023-02-06 [SC]
+      73341B91FEC7DCBC8316EE01E45BEE2E63B81095
+uid                      Mirror Signing Key &#60;mirrorsignkey@example.org&#62;
+sub   rsa4096 2023-02-06 [E]
+</code></pre>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2022 John Finigan</p>
+</footer>
+</body>
+</html>
