@@ -7,6 +7,7 @@ temp_index=$(mktemp)
 temp_index_md=$(mktemp)
 temp_index_sorted=$(mktemp)
 temp_sitemap=$(mktemp)
+temp_rss=$(mktemp)
 mkdir -p dst
 rm -f dst/*.html
 
@@ -51,14 +52,27 @@ lowdown -s "$temp_index_md" |
   sed '$d' | sed '$d' >"$temp_html"
 cat "$temp_html" src/footer >"dst/index.html"
 
+
+siteurl="$(head -n1 src/siteurl)"
+sitedesc="$(head -n1 src/sitedesc)"
+
 #
 # site map generation
 #
 cat src/sitemapheader >"$temp_sitemap"
-siteurl="$(head -n1 src/siteurl)"
 awk -F^ -v site="$siteurl" '{ printf "  <url>\n    <loc>%s%s</loc>\n  </url>\n", site, $3 }' <"$temp_index_sorted" >>"$temp_sitemap"
 echo '</urlset>' >>"$temp_sitemap"
 cat "$temp_sitemap" >sitemap.xml
+
+#
+# rss feed generation
+#
+cat src/rssheader >"$temp_rss"
+echo "<link>${siteurl}</link>" >>"$temp_rss"
+echo "<description>${sitedesc}</description>" >>"$temp_rss"
+awk -F^ -v site="$siteurl" '{ printf "  <item>\n   <title>%s</title>\n   <link>%s%s</link>\n  </item>\n", $2, site, $3 }' <"$temp_index_sorted"  >>"$temp_rss"
+printf "</channel>\n</rss>\n" >>"$temp_rss"
+cat "$temp_rss" >rss.xml
 
 #
 # cleanup and deploy
