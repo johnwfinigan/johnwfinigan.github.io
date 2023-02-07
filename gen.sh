@@ -55,6 +55,7 @@ cat "$temp_html" src/footer >"dst/index.html"
 
 siteurl="$(head -n1 src/siteurl)"
 sitedesc="$(head -n1 src/sitedesc)"
+sitetitle="$(head -n1 src/sitedesc)"
 
 #
 # site map generation
@@ -70,6 +71,7 @@ cat "$temp_sitemap" >sitemap.xml
 cat src/rssheader >"$temp_rss"
 echo "<link>${siteurl}</link>" >>"$temp_rss"
 echo "<description>${sitedesc}</description>" >>"$temp_rss"
+echo "<title>${sitetitle}</title>" >>"$temp_rss"
 awk -F^ -v site="$siteurl" '{ printf "  <item>\n   <title>%s</title>\n   <link>%s%s</link>\n  </item>\n", $2, site, $3 }' <"$temp_index_sorted"  >>"$temp_rss"
 printf "</channel>\n</rss>\n" >>"$temp_rss"
 cat "$temp_rss" >rss.xml
