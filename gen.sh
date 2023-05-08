@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ksh
 
 set -eu
 
@@ -7,7 +7,7 @@ temp_index=$(mktemp)
 temp_index_md=$(mktemp)
 temp_index_sorted=$(mktemp)
 temp_sitemap=$(mktemp)
-temp_rss=$(mktemp)
+temp_atom=$(mktemp)
 mkdir -p dst
 rm -f dst/*.html
 
@@ -42,6 +42,7 @@ css: simple.css
 HERE
 
 # sort index entries by date
+# output format is date^title^filename
 sort -r -k1 -t^ "$temp_index" >"$temp_index_sorted"
 # create markdown from sorted index
 awk -F^ '{ printf "* %s: [%s](%s)\n", $1, $2, $3 }' <"$temp_index_sorted" >>"$temp_index_md"
@@ -54,30 +55,62 @@ cat "$temp_html" src/footer >"dst/index.html"
 
 
 siteurl="$(head -n1 src/siteurl)"
-sitedesc="$(head -n1 src/sitedesc)"
-sitetitle="$(head -n1 src/sitedesc)"
 
 #
 # site map generation
 #
-cat src/sitemapheader >"$temp_sitemap"
+cat <<'HERE' >"$temp_sitemap"
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+HERE
 awk -F^ -v site="$siteurl" '{ printf "  <url>\n    <loc>%s%s</loc>\n  </url>\n", site, $3 }' <"$temp_index_sorted" >>"$temp_sitemap"
 echo '</urlset>' >>"$temp_sitemap"
 cat "$temp_sitemap" >sitemap.xml
 
+
 #
-# rss feed generation
+# atom feed generation
 #
-cat src/rssheader >"$temp_rss"
-echo "<link>${siteurl}</link>" >>"$temp_rss"
-echo "<description>${sitedesc}</description>" >>"$temp_rss"
-echo "<title>${sitetitle}</title>" >>"$temp_rss"
-awk -F^ -v site="$siteurl" '{ printf "  <item>\n   <title>%s</title>\n   <link>%s%s</link>\n  </item>\n", $2, site, $3 }' <"$temp_index_sorted"  >>"$temp_rss"
-printf "</channel>\n</rss>\n" >>"$temp_rss"
-cat "$temp_rss" >rss.xml
+cat <<'HERE' > "$temp_atom"
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title>johnwfinigan.github.io</title>
+  <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom"/>
+  <updated>
+HERE
+awk -F^ '{printf "    %sT00:00:00Z\n", $1; exit}' < "$temp_index_sorted" >> "$temp_atom"
+
+cat <<'HERE' >> "$temp_atom"
+  </updated>
+  <author>
+    <name>John Finigan</name>
+  </author>
+  <id>tag:johnwfinigan.github.io,2015-09-14:blog</id>
+  <rights> Copyright 2015-2023 John Finigan </rights>
+HERE
+
+while IFS='^' read entrydate title filename; do
+  entryname="${filename%%.html}"
+  printf '<entry>\n' >> "$temp_atom"
+  printf '<id>tag:johnwfinigan.github.io,%s:%s</id>\n' "$entrydate" "$entryname" >> "$temp_atom"
+  printf '<title>%s</title>\n' "$title" >> "$temp_atom"
+  printf '<updated>%sT00:00:00Z</updated>\n' "$entrydate" >> "$temp_atom"
+  printf '<author> <name>John Finigan</name> </author>\n' >> "$temp_atom"
+  printf '<content>\n' >> "$temp_atom"
+  lowdown -tman "src/${entryname}.md" | mandoc | col -b | \
+    sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g' \
+    | sed '1d' | sed '$d' >> "$temp_atom"
+  printf '</content></entry>\n' >> "$temp_atom"
+done < "$temp_index_sorted"
+printf '</feed>\n' >> "$temp_atom"
+cat "$temp_atom" > atom.xml
+
 
 #
 # cleanup and deploy
 #
-rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_html" "$temp_sitemap"
+rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_html" "$temp_sitemap" "$temp_atom"
 cp dst/*.html .
+
+# date -u '+%Y-%m-%dT%H:%M:%SZ'
