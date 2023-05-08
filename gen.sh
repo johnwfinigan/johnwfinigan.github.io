@@ -77,10 +77,9 @@ cat <<'HERE' > "$temp_atom"
 
   <title>johnwfinigan.github.io</title>
   <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom.xml"/>
-  <updated>
 HERE
 
-awk -F^ '{printf "<updated>%sT00:00:00Z</updated>\n", $1; exit}' < "$temp_index_sorted" >> "$temp_atom"
+awk -F^ '{printf "  <updated>%sT00:00:00Z</updated>\n", $1; exit}' < "$temp_index_sorted" >> "$temp_atom"
 
 cat <<'HERE' >> "$temp_atom"
   <author>
