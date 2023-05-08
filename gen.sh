@@ -76,13 +76,13 @@ cat <<'HERE' > "$temp_atom"
 <feed xmlns="http://www.w3.org/2005/Atom">
 
   <title>johnwfinigan.github.io</title>
-  <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom"/>
+  <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom.xml"/>
   <updated>
 HERE
-awk -F^ '{printf "    %sT00:00:00Z\n", $1; exit}' < "$temp_index_sorted" >> "$temp_atom"
+
+awk -F^ '{printf "<updated>%sT00:00:00Z</updated>\n", $1; exit}' < "$temp_index_sorted" >> "$temp_atom"
 
 cat <<'HERE' >> "$temp_atom"
-  </updated>
   <author>
     <name>John Finigan</name>
   </author>
