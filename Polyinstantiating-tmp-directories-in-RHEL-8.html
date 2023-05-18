@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="date" scheme="YYYY-MM-DD" content="2023-05-18" />
+<link rel="stylesheet" href="simple.css" />
+<title>Polyinstantiating tmp Directories in RHEL 8</title>
+</head>
+<body>
+
+  <header>
+    <h1>johnwfinigan.github.io</h1>
+  </header>
+
+<main>
+
+
+<h2 id="polyinstantiating-tmp-directories-in-modern-rhel">Polyinstantiating tmp Directories in Modern RHEL</h2>
+
+<p>Polyinstantiation is a Linux security feature for giving each user a private virtual copy of normally globally visible directories such as <code>&#47;tmp</code>. Linux kernel namespaces are used to map each user&#8217;s view of the polyinstantiated directory to a separate directory in the default namespace. This is useful for eliminating the side channel that allows users to defeat administratively set file permissions and share data inappropriately by copying it into world writable directories such as <code>&#47;tmp</code>. When <code>&#47;tmp</code> is polyinstantiated, the user sees his own data in <code>&#47;tmp</code> and nothing else.</p>
+
+<p>This is similar to the systemd <code>PrivateTmp</code> hardening feature, but implemented differently.</p>
+
+<p>I have never had good luck with the instructions generally found online for polyinstantiation, <a href="https://www.redhat.com/en/blog/polyinstantiating-tmp-and-vartmp-directories">such as these</a>. They&#8217;ve generally resulted in a broken system for me. The following works for me on RHEL 8. I haven&#8217;t modified <code>pam.d</code> files because namespace support was already there by default. I did not manually create the polyinstantiation roots, because I am using the automatic creation feature below. </p>
+
+<pre><code>---
+- become: yes
+  hosts: all
+  tasks:
+
+  - name: polyinstantiate &#47;tmp
+    lineinfile:
+      path: &#47;etc&#47;security&#47;namespace.conf
+      line: &#39;&#47;tmp     &#47;tmp&#47;tmp-inst&#47;        level:create=0000,root,root   root,adm&#39;
+
+  - name: polyinstantiate &#47;var&#47;tmp
+    lineinfile:
+      path: &#47;etc&#47;security&#47;namespace.conf
+      line: &#39;&#47;var&#47;tmp &#47;var&#47;tmp&#47;tmp-inst&#47;    level:create=0000,root,root   root,adm&#39;
+
+  - name: polyinstantiate &#47;dev&#47;shm
+    lineinfile:
+      path: &#47;etc&#47;security&#47;namespace.conf
+      line: &#39;&#47;dev&#47;shm    &#47;dev&#47;shm&#47;shm-inst&#47;  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M      root,adm&#39;
+
+  - name: set polyinstantiation selinux boolean
+    seboolean:
+      name: polyinstantiation_enabled
+      state: true
+      persistent: true
+</code></pre>
+
+<p>You&#8217;ll note that <code>&#47;dev&#47;shm</code> is created differently, as a <code>tmpfs</code> mount. Trying to create it via <code>level</code> in the existing <code>&#47;dev&#47;shm</code> produced a broken system. </p>
+
+<p>The <code>namespace.conf mntopts</code> syntax is only supported on <code>tmpfs</code>, but I am mounting the underlying global <code>&#47;tmp</code> and <code>&#47;var&#47;tmp</code> with <code>nodev,nosuid</code> also, and this carries into the polyinstantiated mounts that are rooted there.</p>
+
+<p>This config probably depends on SELinux.</p>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2023 John Finigan</p>
+</footer>
+</body>
+</html>
