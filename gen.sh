@@ -105,6 +105,7 @@ HERE
 
 while IFS='^' read -r entrydate title filename; do
   entryname="${filename%%.html}"
+  # shellcheck disable=SC2129
   printf '<entry>\n' >> "$temp_atom"
   printf '<id>tag:johnwfinigan.github.io,%s:%s</id>\n' "$entrydate" "$entryname" >> "$temp_atom"
   printf '<title>%s</title>\n' "$title" >> "$temp_atom"
