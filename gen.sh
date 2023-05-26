@@ -112,9 +112,9 @@ while IFS='^' read -r entrydate title filename; do
   printf '<updated>%sT00:00:00Z</updated>\n' "$entrydate" >> "$temp_atom"
   printf '<author> <name>John Finigan</name> </author>\n' >> "$temp_atom"
   printf '<content>\n' >> "$temp_atom"
-  lowdown -tman "src/${entryname}.md" | mandoc | col -b | \
-    sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g' \
-    | sed '1d' | sed '$d' >> "$temp_atom"
+  lowdown -tman "src/${entryname}.md" | mandoc | col -b |
+    sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g' |
+    sed '1d' | sed '$d' >> "$temp_atom"
   printf '</content></entry>\n' >> "$temp_atom"
 done < "$temp_index_sorted"
 printf '</feed>\n' >> "$temp_atom"
