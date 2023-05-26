@@ -103,7 +103,7 @@ cat <<'HERE' >> "$temp_atom"
   <rights> Copyright 2015-2023 John Finigan </rights>
 HERE
 
-while IFS='^' read entrydate title filename; do
+while IFS='^' read -r entrydate title filename; do
   entryname="${filename%%.html}"
   printf '<entry>\n' >> "$temp_atom"
   printf '<id>tag:johnwfinigan.github.io,%s:%s</id>\n' "$entrydate" "$entryname" >> "$temp_atom"
