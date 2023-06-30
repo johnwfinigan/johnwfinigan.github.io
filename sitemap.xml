@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://johnwfinigan.github.io/Using-IAP-TCP-Forwarding-to-Build-Compute-Images-with-Packer-in-Google-Cloud-Build.html</loc>
+  </url>
+  <url>
     <loc>https://johnwfinigan.github.io/Polyinstantiating-tmp-directories-in-RHEL-8.html</loc>
   </url>
   <url>

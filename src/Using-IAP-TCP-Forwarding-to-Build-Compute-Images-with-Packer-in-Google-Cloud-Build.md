@@ -9,7 +9,7 @@ tags: gcp ansible iap packer
 
 That previous post documents the necessary IAM and firewall rules needed for full IAP SSH to work, however here we are using IAP TCP forwarding, and SSH authentication is being handled by Packer itself instead of OSLogin, so only a subset of the requirements need to be met: the GCE firewall must allow IAP to communicate with the VM, and the Cloud Build service account must have IAM rights to start a tunnel to the VM (```roles/iap.tunnelResourceAccessor```)
 
-The example:
+Example cloudbuild.yaml - [Click here](./assets/cloudbuild-packer.yml) to view raw.
 
 ```
 steps:

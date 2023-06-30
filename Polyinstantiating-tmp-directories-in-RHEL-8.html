@@ -29,20 +29,13 @@
   hosts: all
   tasks:
 
-  - name: polyinstantiate &#47;tmp
-    lineinfile:
+  - name: polyinstantiate temp directories
+    blockinfile:
       path: &#47;etc&#47;security&#47;namespace.conf
-      line: &#39;&#47;tmp     &#47;tmp&#47;tmp-inst&#47;        level:create=0000,root,root   root,adm&#39;
-
-  - name: polyinstantiate &#47;var&#47;tmp
-    lineinfile:
-      path: &#47;etc&#47;security&#47;namespace.conf
-      line: &#39;&#47;var&#47;tmp &#47;var&#47;tmp&#47;tmp-inst&#47;    level:create=0000,root,root   root,adm&#39;
-
-  - name: polyinstantiate &#47;dev&#47;shm
-    lineinfile:
-      path: &#47;etc&#47;security&#47;namespace.conf
-      line: &#39;&#47;dev&#47;shm    &#47;dev&#47;shm&#47;shm-inst&#47;  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M      root,adm&#39;
+      block: |
+        &#47;tmp     &#47;tmp&#47;tmp-inst&#47;         level:create=0000,root,root   root,adm
+        &#47;var&#47;tmp &#47;var&#47;tmp&#47;tmp-inst&#47;     level:create=0000,root,root   root,adm
+        &#47;dev&#47;shm    &#47;dev&#47;shm&#47;shm-inst&#47;  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M   root,adm
 
   - name: set polyinstantiation selinux boolean
     seboolean:

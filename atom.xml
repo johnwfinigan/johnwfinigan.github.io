@@ -3,12 +3,136 @@
 
   <title>johnwfinigan.github.io</title>
   <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom.xml"/>
-  <updated>2023-05-18T00:00:00Z</updated>
+  <updated>2023-06-30T00:00:00Z</updated>
   <author>
     <name>John Finigan</name>
   </author>
   <id>tag:johnwfinigan.github.io,2015-09-14:blog</id>
   <rights> Copyright 2015-2023 John Finigan </rights>
+<entry>
+<id>tag:johnwfinigan.github.io,2023-06-30:Using-IAP-TCP-Forwarding-to-Build-Compute-Images-with-Packer-in-Google-Cloud-Build</id>
+<title>Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in Google Cloud Build</title>
+<updated>2023-06-30T00:00:00Z</updated>
+<author> <name>John Finigan</name> </author>
+<content>
+
+   Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in
+       Google Cloud Build
+       Previously I wrote &lt;./Using-IAP-SSH-to-Run-Ansible-in-Google-Cloud-
+       Build.html&gt; about using Google Identity Aware Proxy based SSH to run
+       Ansible within Google Cloud Build without needing a firewall
+       penetration or network peering between Cloud Build and the target VMs,
+       and without the target VMs needing public IPs. In this post I&#39;ll show
+       how to use IAP TCP forwarding to build compute images using Hashicorp
+       Packer running in Cloud Build, also without direct networking between
+       Cloud Build and the ephemeral VM that Packer uses for the image build.
+
+       That previous post documents the necessary IAM and firewall rules
+       needed for full IAP SSH to work, however here we are using IAP TCP
+       forwarding, and SSH authentication is being handled by Packer itself
+       instead of OSLogin, so only a subset of the requirements need to be
+       met: the GCE firewall must allow IAP to communicate with the VM, and
+       the Cloud Build service account must have IAM rights to start a tunnel
+       to the VM (roles/iap.tunnelResourceAccessor)
+
+       Example cloudbuild.yaml - Click here &lt;./assets/cloudbuild-packer.yml&gt;
+       to view raw.
+
+       steps:
+	 - name: &#39;hashicorp/packer&#39;
+	   entrypoint: sh
+	   args:
+	     - &#39;-c&#39;
+	     - |
+		 cp $(which packer) /workspace/
+		 chmod 555 /workspace/packer
+
+	 - name: &#39;gcr.io/google.com/cloudsdktool/google-cloud-cli:slim&#39;
+	   env:
+	     - &#39;PACKER_NO_COLOR=true&#39;
+	   entrypoint: bash
+	   args:
+	     - &#39;-c&#39;
+	     - |
+		 set -euo pipefail
+		 $(gcloud info --format=&quot;value(basic.python_location)&quot;) -m pip install numpy
+		 python3 -m pip install ansible
+		 touch ./log
+		 ( while ! grep -Fq &quot;Instance has been created&quot; ./log ; do
+		     echo &quot;waiting to start tunnel&quot; ;
+		     sleep 5 ;
+		   done ;
+		   sleep 60 ;
+		   gcloud compute start-iap-tunnel packer-${BUILD_ID} 22 --local-host-port=127.0.0.1:22222 --zone=${_BUILD_ZONE} ) &amp;
+		 /workspace/packer build \
+		   -var zone=${_BUILD_ZONE} \
+		   -var instance_name=packer-${BUILD_ID} \
+		   my_packerfile.pkr.hcl |&amp; tee ./log
+
+       options:
+	 logging: CLOUD_LOGGING_ONLY
+       timeout: 3600s
+
+       Essentially, IAP TCP tunnelling is used to make port 22 on the target
+       VM appear at port 22222 inside the Cloud Build runtime, and directives
+       are added to the packerfile to link this all together, as shown below.
+       In Cloud Build, $BUILD_ID is a built-in variable, but $_BUILD_ZONE is a
+       user-supplied substitution that I am showing here since IAP tunneling
+       and the compute instance have to be coordinated regarding the zone and
+       the build VM&#39;s name. Your packerfile will contain something like this:
+
+       source &quot;googlecompute&quot; &quot;my_build&quot; {
+	 ...
+	 ...
+	 zone			 = &quot;${var.zone}&quot;
+	 disable_default_service_account = true
+	 instance_name		 = &quot;${var.instance_name}&quot;
+	 ssh_host		 = &quot;127.0.0.1&quot;
+	 ssh_port		 = &quot;22222&quot;
+	 pause_before_connecting = &quot;60s&quot;
+	 metadata = {
+	   enable-oslogin = &quot;FALSE&quot;
+	 }
+	 ...
+	 ...
+       }
+
+       Notably, this is not the prettiest shell scripting. There are probably
+       race conditions in it, and some of the inserted waits may not actually
+       be needed to avoid them. However, I&#39;ve run a few dozen Linux image
+       builds successfully using this code, and have not experienced a failure
+       to connect yet.
+
+       Unlike my Ansible example, here I chose to rely on no custom containers
+       and assemble everything needed using well known images.
+
+       As a bonus, here is some terraform you may be able to adapt to set up
+       your firewall and IAM to allow IAP tunnelling to your VMs:
+
+       resource &quot;google_compute_firewall&quot; &quot;allow-iap-ssh&quot; {
+	 name	 = &quot;allow-iap-ssh&quot;
+	 network = google_compute_network.FIXME.name
+	 allow {
+	   protocol = &quot;tcp&quot;
+	   ports    = [&quot;22&quot;]
+	 }
+	 source_ranges = [&quot;35.235.240.0/20&quot;]
+	 priority      = &quot;1000&quot;
+       }
+
+       module &quot;image-cloudbuild&quot; {
+	 source	      = &quot;terraform-google-modules/service-accounts/google&quot;
+	 names	      = [&quot;image-cloudbuild&quot;]
+	 display_name = &quot;image-cloudbuild&quot;
+	 project_roles = [
+	   &quot;FIXME_PROJECT=&gt;roles/cloudbuild.builds.builder&quot;,
+	   &quot;FIXME_PROJECT=&gt;roles/compute.instanceAdmin.v1&quot;,
+	   &quot;FIXME_PROJECT=&gt;roles/compute.networkUser&quot;,
+	   &quot;FIXME_PROJECT=&gt;roles/iap.tunnelResourceAccessor&quot;,
+	 ]
+       }
+
+</content></entry>
 <entry>
 <id>tag:johnwfinigan.github.io,2023-05-18:Polyinstantiating-tmp-directories-in-RHEL-8</id>
 <title>Polyinstantiating tmp Directories in RHEL 8</title>
@@ -19,7 +143,7 @@
    Polyinstantiating tmp Directories in Modern RHEL
        Polyinstantiation is a Linux security feature for giving each user a
        private virtual copy of normally globally visible directories such as
-       /tmp. Linux kernel namespaces are used to map each users view of the
+       /tmp. Linux kernel namespaces are used to map each user&#39;s view of the
        polyinstantiated directory to a separate directory in the default
        namespace. This is useful for eliminating the side channel that allows
        users to defeat administratively set file permissions and share data
@@ -33,8 +157,8 @@
        I have never had good luck with the instructions generally found online
        for polyinstantiation, such as these
        &lt;https://www.redhat.com/en/blog/polyinstantiating-tmp-and-vartmp-
-       directories&gt;. Theyve generally resulted in a broken system for me. The
-       following works for me on RHEL 8. I havent modified pam.d files
+       directories&gt;. They&#39;ve generally resulted in a broken system for me. The
+       following works for me on RHEL 8. I haven&#39;t modified pam.d files
        because namespace support was already there by default. I did not
        manually create the polyinstantiation roots, because I am using the
        automatic creation feature below.
@@ -44,20 +168,13 @@
 	 hosts: all
 	 tasks:
 
-	 - name: polyinstantiate /tmp
-	   lineinfile:
+	 - name: polyinstantiate temp directories
+	   blockinfile:
 	     path: /etc/security/namespace.conf
-	     line: &#39;/tmp     /tmp/tmp-inst/	   level:create=0000,root,root	 root,adm&#39;
-
-	 - name: polyinstantiate /var/tmp
-	   lineinfile:
-	     path: /etc/security/namespace.conf
-	     line: &#39;/var/tmp /var/tmp/tmp-inst/	   level:create=0000,root,root	 root,adm&#39;
-
-	 - name: polyinstantiate /dev/shm
-	   lineinfile:
-	     path: /etc/security/namespace.conf
-	     line: &#39;/dev/shm	/dev/shm/shm-inst/  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M	    root,adm&#39;
+	     block: |
+	       /tmp	/tmp/tmp-inst/	       level:create=0000,root,root   root,adm
+	       /var/tmp /var/tmp/tmp-inst/     level:create=0000,root,root   root,adm
+	       /dev/shm	   /dev/shm/shm-inst/  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M   root,adm
 
 	 - name: set polyinstantiation selinux boolean
 	   seboolean:
@@ -65,7 +182,7 @@
 	     state: true
 	     persistent: true
 
-       Youll note that /dev/shm is created differently, as a tmpfs mount.
+       You&#39;ll note that /dev/shm is created differently, as a tmpfs mount.
        Trying to create it via level in the existing /dev/shm produced a
        broken system.
 
@@ -85,8 +202,8 @@
 <content>
 
    Using IAP SSH to run Ansible in Google Cloud Build Triggers
-       Google pitches Cloud Build as the serverless CI/CD platform for
-       Google Cloud (GCP). Its easy to use for infrastructure tasks like
+       Google pitches Cloud Build as the &quot;serverless CI/CD platform&quot; for
+       Google Cloud (GCP). It&#39;s easy to use for infrastructure tasks like
        deploying cloud infrastructure using Terraform. This is great for
        ensuring that your Terraform build environment is repeatable and not
        tied to implicit state on a build machine.
@@ -95,7 +212,7 @@
        choosing on a network that is, by default, not part of your customer-
        controlled VPC network. By default, traffic egressing from your Cloud
        Build will be seen by your instances as originating from a public IP of
-       Googles choosing. This can be a problem if you want to use Cloud Build
+       Google&#39;s choosing. This can be a problem if you want to use Cloud Build
        to run Ansible to configure your instances, since Ansible will
        typically log in to your instances using SSH. You could allow SSH
        traffic in from any public IP, but this is bad security practice if
@@ -108,15 +225,15 @@
        configuration work &lt;https://cloud.google.com/build/docs/private-
        pools/set-up-private-pool-to-use-in-vpc-network&gt;, including the use of
        Private Services Access to connect to your VPC network by VPC peering.
-       Personally, I dont find this appealing. It injects a fair amount of
+       Personally, I don&#39;t find this appealing. It injects a fair amount of
        accidental complexity for this simple use case.
 
        But, there is another way. Google Cloud offers something called
        Identity Aware Proxy (IAP), which allows you to tunnel TCP traffic from
        anywhere to inside your VPC network, without your instances having
        public IPs. The gcloud compute ssh command has built in IAP support. I
-       use this extensively for general admin access. It generally just
-       works.
+       use this extensively for general admin access. It generally &quot;just
+       works&quot;.
 
        All that remains is to plumb IAP SSH into Ansible, and do it in such a
        way that it can run in Cloud Build.
@@ -190,20 +307,20 @@
        on that account being a valid OSLogin + IAP instance accessor account.
        That requires:
 
-	There must be a firewall rule on your VPC networks that allows IAP
+       o There must be a firewall rule on your VPC networks that allows IAP
 	 SSH &lt;https://cloud.google.com/iap/docs/using-tcp-forwarding#create-
-	 firewall-rule&gt; to reach instance private IPs from Googles designated
+	 firewall-rule&gt; to reach instance private IPs from Google&#39;s designated
 	 IAP origination range. The instances do not require public IPs.
 
-	The instances must have OSLogin Enabled
+       o The instances must have OSLogin Enabled
 	 &lt;https://cloud.google.com/compute/docs/oslogin/set-up-oslogin&gt;
 
-	The Cloud Build service account you use must have the following
+       o The Cloud Build service account you use must have the following
 	 roles:
 
-	  roles/compute.osAdminLogin on the instance or project
-	  roles/iam.serviceAccountUser on the instances service account
-	  roles/iap.tunnelResourceAccessor on the project or tunnel
+	 o roles/compute.osAdminLogin on the instance or project
+	 o roles/iam.serviceAccountUser on the instance&#39;s service account
+	 o roles/iap.tunnelResourceAccessor on the project or tunnel
 
        I have not tested with the default Cloud Build service account, but
        only with cloud build running as a custom service account. The Service
@@ -213,8 +330,8 @@
        account, so this formalizes the relationship.
 
        Finally, in your container, you need a small Ansible config file,
-       g-ansible.cfg. Ive been using this one for Ansible+IAP for years and
-       dont remember all the details, but some tweaks were required to get
+       g-ansible.cfg. I&#39;ve been using this one for Ansible+IAP for years and
+       don&#39;t remember all the details, but some tweaks were required to get
        file transfer (eg. Ansible copy:) to work reliably. You may have to
        change the default interpreter_python based on the Linux version you
        run in your instances. I had to limit forks for stability, but have not
@@ -229,7 +346,7 @@
        forks = 1
        interpreter_python = /usr/bin/python3
 
-       Heres a sample cloudbuild.yaml that uses this container to run Ansible
+       Here&#39;s a sample cloudbuild.yaml that uses this container to run Ansible
        through IAP in Cloud Build:
 
        steps:
@@ -262,7 +379,7 @@
 <content>
 
    Creating a Minimal apt Repo From Scratch
-       Lets say you want to create an apt repo for debs you have built
+       Let&#39;s say you want to create an apt repo for debs you have built
        yourself. I spent an hour or two cobbling together these minimalist
        instructions from various internet sources. The sources I found seemed
        to be either outdated enough that they were no longer correct for
@@ -274,7 +391,7 @@
    Create a gpg key for signing
        Use the gpg shipped with Ubuntu 22.04 or whatever client distro you
        plan to support. Set the Real Name field of your key to whatever you
-       like. Here, its called Mirror Signing Key. Once generated, export your
+       like. Here, it&#39;s called Mirror Signing Key. Once generated, export your
        key using the fingerprint shown when it was generated.
 
        gpg --armor --export 73341B91FEC7DCBC8316EE01E45BEE2E63B81095 &gt; MirrorSigningKey.pub
@@ -282,12 +399,12 @@
        This exported key will be copied to your apt clients for apt metadata
        verification.
 
-       Example gpg session at the bottom of this post. In short, its OK to
+       Example gpg session at the bottom of this post. In short, it&#39;s OK to
        choose RSA and RSA, and set RSA key size to 4096.
 
    Populate your repo
        Put your debs in a directory that you intend to serve to your clients.
-       Here, its called $repo_dir
+       Here, it&#39;s called $repo_dir
 
    Install repo build tools
        Ensure you have the packages dpkg-deb and apt-utils installed, for the
@@ -316,7 +433,7 @@
        /proc while gpg is executing. Proper gpg pin entry methods seem
        especially fragile on headless systems, and after an hour of
        frustration trying to debug pinentry, I resorted to it. Someone with
-       better gpg skills could do better. On the other hand, its easy to see
+       better gpg skills could do better. On the other hand, it&#39;s easy to see
        how this could be modified to work with a secret manager in a CI system
        - just replace the read call with a call to your secret manager.
 
@@ -328,7 +445,7 @@
 
        install -o root -g root -m0644 MirrorSigningKey.pub /etc/apt/trusted.gpg.d/
 
-       Note that Im using install here as an all-in-one way to copy data
+       Note that I&#39;m using install here as an all-in-one way to copy data
        while ensuring that permissions are reasonable. Your preferred way to
        do that should be fine, regardless.
 
@@ -416,7 +533,7 @@
        172.16.1.6:/srv/data /data nfs rw,tcp 0 0
 
        For the Linux server configuration, I will use Ansible and Firewalld,
-       but theres nothing special about these and it should be easy to adapt
+       but there&#39;s nothing special about these and it should be easy to adapt
        this solution to any firewall or config management method. Ubuntu 22.04
        has most NFS server config in /etc/nfs.conf, while older distros such
        as Ubuntu 20.04 require editing multiple config files. I have
@@ -446,7 +563,7 @@
 
    Ubuntu 22.04 NFS Server Config
        /etc/nfs.conf is in ini file format. Ansible ini_file makes it easy to
-       edit ini programatically, but if youre editing by hand, you can easily
+       edit ini programatically, but if you&#39;re editing by hand, you can easily
        pull out the section name, option (key) names, and values below:
 
 	 - name: nfs v3 port locking for ubuntu 22.04 server
@@ -538,7 +655,7 @@
 	firewall-cmd --zone=public --permanent --add-service=http
 	firewall-cmd --zone=public --permanent --add-service=https
 
-       You cant add the permanent firewalld rules unless firewalld is already
+       You can&#39;t add the permanent firewalld rules unless firewalld is already
        running, so we started it.
 
    Next, edit /etc/httpd/conf.d/nagios.conf
@@ -611,7 +728,7 @@
        cd /etc/nagios/conf.d
 
        This directory starts empty and you can add config files organized
-       however you like. Heres one barebones layout, as an example. Dont
+       however you like. Here&#39;s one barebones layout, as an example. Don&#39;t
        copy and paste, since the hostnames are up to you.
 
        Contents of file /etc/nagios/conf.d/hosts.cfg
@@ -667,14 +784,14 @@
        service nagios restart
 
    Gmail Notifications
-       Finally, lets get some notifications going. Nagios is ready to notify
-       as soon as we have a working mta. I use gmail, and dont want to run a
+       Finally, let&#39;s get some notifications going. Nagios is ready to notify
+       as soon as we have a working mta. I use gmail, and don&#39;t want to run a
        real MTA like sendmail. Taking inspiration from here
        &lt;http://sharadchhetri.com/2013/07/16/how-to-use-email-id-of-gmail-for-
-       sending-nagios-email-alerts/&gt;, we will use the ssmtp send-only
-       sendmail emulator, but moving around binaries like in the linked post
+       sending-nagios-email-alerts/&gt;, we will use the ssmtp &quot;send-only
+       sendmail emulator&quot;, but moving around binaries like in the linked post
        makes me nervous since the moves will be clobbered by future Centos
-       updates, so well use the alternatives system to subsititute ssmtp for
+       updates, so we&#39;ll use the alternatives system to subsititute ssmtp for
        sendmail instead.
 
        Be very careful if you are already running a MTA like sendmail on your
@@ -704,7 +821,7 @@
 <author> <name>John Finigan</name> </author>
 <content>
 
-   Installing SUSE Linux SLES 11 on qems s390x emulated mainframe with
+   Installing SUSE Linux SLES 11 on qemu&#39;s s390x emulated mainframe with
        virtio
        (Historical post - this is outdated, but parts are likely still useful)
 
@@ -721,14 +838,14 @@
        z/OS expects to see. There is a lot to understand if you just want to
        try your program on s390x Linux.
 
-       However, QEMs &lt;http://wiki.qemu.org/Main_Page&gt; s390x abilities have
-       improved recently due to IBMs adoption of KVM virtualization on z
+       However, QEMU&#39;s &lt;http://wiki.qemu.org/Main_Page&gt; s390x abilities have
+       improved recently due to IBM&#39;s adoption of KVM virtualization on z
        Systems as an alternative to z/VM. Most importantly, recent QEMU has
        new virtio paravirtual IO devices for s390x Linux, meaning that you do
        not need to configure emulated mainframe channel controllers and DASD.
 
        All of this would not help if mainframe QEMU was only useful for KVM.
-       But its not: the qemu-system-s390x emulator works just fine.
+       But it&#39;s not: the qemu-system-s390x emulator works just fine.
 
        I used QEMU 2.4, built from source. Everything else came with my Ubuntu
        15.04 install. I doubt I would have figured any of this out without
@@ -741,11 +858,11 @@
        supports it. SUSE Linux Enterprise Server 11 SP4 is new enough. You can
        get a trial here &lt;https://www.suse.com/products/server/download/&gt;
 
-       Too new may also not work: Apparently RHEL 7 and SLES 12 wot
+       Too new may also not work: Apparently RHEL 7 and SLES 12 won&#39;t
        &lt;https://lists.gnu.org/archive/html/qemu-devel/2015-08/msg03884.html&gt;.
        The whole linked discussion is worth reading.
 
-       Finally, its convenient to do the install over HTTP since real
+       Finally, it&#39;s convenient to do the install over HTTP since real
        mainframes rarely install from CD, so CD is not the path of least
        resistance.
 
@@ -768,11 +885,11 @@
        $ zcat boot/vmlinux-3.0.101-63-default.gz &gt; ../kernel
        $ cd .. ; rm -rf junk
 
-       Finally, serve the install disks contents locally using HTTP:
+       Finally, serve the install disk&#39;s contents locally using HTTP:
 
        $ cd ./mnt ; python -m SimpleHTTPServer
 
-       Now, in a new terminal, the moment weve all been waiting for::
+       Now, in a new terminal, the moment we&#39;ve all been waiting for::
 
        $ cd $HOME/qemu.test
        $ qemu-system-s390x -M s390-ccw-virtio -m 1024 -smp 1 -nographic \
@@ -782,16 +899,16 @@
 	 -device virtio-net-ccw,netdev=mynet0,id=net0,mac=08:00:2F:00:11:22,devno=fe.0.0001 \
 	 -kernel ./kernel -initrd ./initrd
 
-       A couple of networking notes: We are using QEMUs user networking
-       option here, which uses QEMUs internal NAT gateway and DHCP server,
-       but is slow. It is zero setup though, which is why were using it. The
+       A couple of networking notes: We are using QEMU&#39;s &quot;user&quot; networking
+       option here, which uses QEMU&#39;s internal NAT gateway and DHCP server,
+       but is slow. It is zero setup though, which is why we&#39;re using it. The
        hostfwd=tcp::10022-:22 argument forwards port 22 (SSH) on the guest to
-       port 10022 on the host. The MAC address is in PR1MEs space, so make
+       port 10022 on the host. The MAC address is in PR1ME&#39;s space, so make
        sure it does not conflict with any PRIMOS
        &lt;https://en.wikipedia.org/wiki/PRIMOS&gt; systems you may be running.
 
-       Heres a log of me running through the beginning of the setup once the
-       guest is booted. 10.0.2.2 is QEMUs emulated router and maps to the
+       Here&#39;s a log of me running through the beginning of the setup once the
+       guest is booted. 10.0.2.2 is QEMU&#39;s emulated router and maps to the
        host.
 
        &gt;&gt;&gt; Linuxrc v3.3.108 (Kernel 3.0.101-63-default) &lt;&lt;&lt;
@@ -912,14 +1029,14 @@
 		***  run &#39;yast&#39; to start the installation  ***
 
        At this, point, open a new terminal. SSH to locahost and not the
-       reported 10.0.2.15 IP, since QEMU is forwarding the guests port 22 to
-       the hosts port 10022. Do not pass the -X flag to ssh, since it will
-       try to do X forwarding of the installer, and its painfully slow.
+       reported 10.0.2.15 IP, since QEMU is forwarding the guest&#39;s port 22 to
+       the host&#39;s port 10022. Do not pass the -X flag to ssh, since it will
+       try to do X forwarding of the installer, and it&#39;s painfully slow.
 
        $ ssh -p 10022 root@localhost
        $ yast
 
-       From here, its a normal SUSE install. It will halt when its finished,
+       From here, it&#39;s a normal SUSE install. It will halt when it&#39;s finished,
        and you can then start qemu without the supplied kernel and initrd,
        since it will boot from the root disk now:
 

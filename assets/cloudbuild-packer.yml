@@ -1,0 +1,34 @@
+steps:
+  - name: 'hashicorp/packer'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+          cp $(which packer) /workspace/
+          chmod 555 /workspace/packer
+
+  - name: 'gcr.io/google.com/cloudsdktool/google-cloud-cli:slim'
+    env:
+      - 'PACKER_NO_COLOR=true'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+          set -euo pipefail
+          $(gcloud info --format="value(basic.python_location)") -m pip install numpy
+          python3 -m pip install ansible
+          touch ./log
+          ( while ! grep -Fq "Instance has been created" ./log ; do 
+              echo "waiting to start tunnel" ; 
+              sleep 5 ; 
+            done ; 
+            sleep 60 ; 
+            gcloud compute start-iap-tunnel packer-${BUILD_ID} 22 --local-host-port=127.0.0.1:22222 --zone=${_BUILD_ZONE} ) &
+          /workspace/packer build \
+            -var zone=${_BUILD_ZONE} \
+            -var instance_name=packer-${BUILD_ID} \
+            my_packerfile.pkr.hcl |& tee ./log
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 3600s
