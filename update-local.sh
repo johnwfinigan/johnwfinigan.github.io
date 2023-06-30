@@ -2,9 +2,11 @@
 
 set -eux
 
-install -m0644 simple.css /var/www/htdocs/
-install -m0644 atom.xml /var/www/htdocs/
+sitepath=/var/www/htdocs/site/
+
+install -m0644 simple.css $sitepath
+install -m0644 atom.xml $sitepath
 
 for h in dst/*.html ; do
-  install -m0644 "$h" /var/www/htdocs/
+  install -m0644 "$h" $sitepath
 done
