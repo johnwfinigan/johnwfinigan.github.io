@@ -17,20 +17,13 @@ I have never had good luck with the instructions generally found online for poly
   hosts: all
   tasks:
 
-  - name: polyinstantiate /tmp
-    lineinfile:
+  - name: polyinstantiate temp directories
+    blockinfile:
       path: /etc/security/namespace.conf
-      line: '/tmp     /tmp/tmp-inst/       	level:create=0000,root,root   root,adm'
-
-  - name: polyinstantiate /var/tmp
-    lineinfile:
-      path: /etc/security/namespace.conf
-      line: '/var/tmp /var/tmp/tmp-inst/   	level:create=0000,root,root   root,adm'
-
-  - name: polyinstantiate /dev/shm
-    lineinfile:
-      path: /etc/security/namespace.conf
-      line: '/dev/shm    /dev/shm/shm-inst/  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M      root,adm'
+      block: |
+        /tmp     /tmp/tmp-inst/       	level:create=0000,root,root   root,adm
+        /var/tmp /var/tmp/tmp-inst/   	level:create=0000,root,root   root,adm
+        /dev/shm    /dev/shm/shm-inst/  tmpfs:create=0000,root,root:mntopts=nodev,nosuid,size=128M   root,adm
 
   - name: set polyinstantiation selinux boolean
     seboolean:
