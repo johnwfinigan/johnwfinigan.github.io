@@ -1,6 +1,6 @@
 title: Creating a Minimal apt Repo From Scratch
 date: 2023-02-05
-css: simple.css
+css: style.css
 tags: ubuntu apt deb Linux repos
 
 

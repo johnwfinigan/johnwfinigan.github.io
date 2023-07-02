@@ -51,7 +51,7 @@ done
 #
 cat <<HERE >"$temp_index_md"
 title: Index
-css: simple.css
+css: style.css
 
 HERE
 

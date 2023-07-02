@@ -1,6 +1,6 @@
 title: Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in Google Cloud Build
 date: 2023-06-30
-css: simple.css
+css: style.css
 tags: gcp ansible iap packer
 
 ## Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in Google Cloud Build

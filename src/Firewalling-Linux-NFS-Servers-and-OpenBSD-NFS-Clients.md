@@ -1,6 +1,6 @@
 title: Firewalling Linux NFS Servers and OpenBSD NFS Clients
 date: 2022-09-13
-css: simple.css
+css: style.css
 tags: firewall OpenBSD Linux nfs
 
 

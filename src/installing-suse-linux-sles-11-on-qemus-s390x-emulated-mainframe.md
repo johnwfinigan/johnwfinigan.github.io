@@ -1,6 +1,6 @@
 title: Installing SUSE Linux SLES 11 on qemu's s390x emulated mainframe with virtio
 date: 2015-09-14
-css: simple.css
+css: style.css
 tags: qemu s390x mainframe SLES Linux emulation
 
 

@@ -1,6 +1,6 @@
 title: Minimum viable install: Nagios from epel on Centos 7, with Gmail notifications
 date: 2015-09-17
-css: simple.css
+css: style.css
 tags: nagios, monitoring
 
 

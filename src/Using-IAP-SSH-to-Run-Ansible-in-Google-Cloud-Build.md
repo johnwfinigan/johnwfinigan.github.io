@@ -1,6 +1,6 @@
 title: Using IAP SSH to run Ansible in Google Cloud Build Triggers
 date: 2023-05-08
-css: simple.css
+css: style.css
 tags: gcp ansible iap
 
 ## Using IAP SSH to run Ansible in Google Cloud Build Triggers

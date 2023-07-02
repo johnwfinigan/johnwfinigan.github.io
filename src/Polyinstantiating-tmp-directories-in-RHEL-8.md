@@ -1,6 +1,6 @@
 title: Polyinstantiating tmp Directories in RHEL 8
 date: 2023-05-18
-css: simple.css
+css: style.css
 tags: linux rhel selinux security
 
 ## Polyinstantiating tmp Directories in Modern RHEL
