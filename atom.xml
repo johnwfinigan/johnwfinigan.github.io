@@ -72,6 +72,43 @@
 
 </content></entry>
 <entry>
+<id>tag:johnwfinigan.github.io,2023-10-13:Limiting-CPU-and-Memory-on-User-Login-Sessions-with-Systemd</id>
+<title>Limiting CPU and Memory on User Login Sessions with Systemd</title>
+<updated>2023-10-13T00:00:00Z</updated>
+<author> <name>John Finigan</name> </author>
+<content>
+
+   Limiting CPU and Memory on User Login Sessions with Systemd
+       On multiuser Linux systems you may need to limit the memory and CPU use
+       of interactive users so that one user cannot hog or crash the box.
+       There&#39;s several ways to do this, but I find the systemd approach to be
+       the cleanest. On older systems like RHEL 7 you can still use cgroups
+       with the cgred approach, and on really old systems there is still
+       ulimit
+
+       This approach uses a template for the systemd slice that a user&#39;s login
+       session is added to on login. This allows you to use standard systemd
+       resource controls as defined in the systemd documentation
+       &lt;https://www.freedesktop.org/software/systemd/man/systemd.resource-
+       control.html&gt;
+
+       At /etc/systemd/system/user-.slice.d/50-userlimits.conf create the
+       following:
+
+       [Slice]
+       MemoryMax=50G
+       TasksMax=512
+       CPUQuota=400%
+
+       For a given user UID, you can then check some stats, including memory
+       usage,  on their slice using systemctl - for example:
+
+       systemctl status user-12345.slice
+
+       Tested on RHEL 8 and 9.
+
+</content></entry>
+<entry>
 <id>tag:johnwfinigan.github.io,2023-06-30:Using-IAP-TCP-Forwarding-to-Build-Compute-Images-with-Packer-in-Google-Cloud-Build</id>
 <title>Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in Google Cloud Build</title>
 <updated>2023-06-30T00:00:00Z</updated>
