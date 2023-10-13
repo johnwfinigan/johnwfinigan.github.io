@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="date" scheme="YYYY-MM-DD" content="2023-10-13" />
+<link rel="stylesheet" href="style.css" />
+<title>Quick XFS Quota Notes</title>
+</head>
+<body>
+
+  <header>
+    <h1><a href="https://johnwfinigan.github.io">johnwfinigan.github.io</a></h1>
+  </header>
+
+<main>
+
+
+<h2 id="quick-xfs-quota-notes">Quick XFS Quota Notes</h2>
+
+<p>On multiuser systems, filesystem quotas are a low maintenance way to stop a single user from filling a partition. XFS quota support is good, and XFS project quotas provide a way to limit the growth of a directory tree even if it is not on a separate filesystem. These notes are really just a quick summary of <code>man xfs_quota</code>. Tested on RHEL 7 and up.</p>
+
+<h3 id="per-user-quotas">Per user quotas</h3>
+
+<pre><code>xfs_quota -x -c &#39;limit bsoft=2g bhard=2g -d&#39; &#47;tmp          # set a default space quota, applies to each user but not root
+ 
+xfs_quota -x -c &#39;limit bsoft=10g bhard=10g myuser&#39; &#47;tmp    # override the default for a particular user
+ 
+xfs_quota -x -c &#39;report -h&#39; &#47;tmp                           # display report, find users who have hit quota
+</code></pre>
+
+<p>For user quotas to work, the filesystem must be mounted with the <code>uquota</code> option.</p>
+
+<pre><code>&#47;dev&#47;mapper&#47;vg00-tmp   &#47;tmp                   xfs     defaults,uquota        0 0
+</code></pre>
+
+<h3 id="project-quotas">Project Quotas</h3>
+
+<p>This lets you set a quota on a directory tree and tracks usage independent of what user owns the data.</p>
+
+<p>In this example, the directory tree being limited is &#47;home, and &#47;home is part of the &#47; filesystem. 10 is a project number that is arbitrary but needs to be unique per project quota.</p>
+
+<pre><code>xfs_quota -x -c &#39;project -s -p &#47;home 10&#39; &#47;                # define a project number for &#47;home
+ 
+xfs_quota -x -c &#39;limit -p bhard=2g 10&#39; &#47;                  # set an overall limit on that project
+</code></pre>
+
+<p>For project quotas to work, the filesystem must be mounted with the <code>pquota</code> option. You can enable multiple quota types on the same filesystem.</p>
+
+<pre><code>&#47;dev&#47;mapper&#47;vg00-home   &#47;home                   xfs     defaults,pquota        0 0
+</code></pre>
+
+<h3 id="special-steps-if-enabling-quotas-on-root">Special steps if enabling quotas on root</h3>
+
+<p>Tested only on RHEL 7.</p>
+
+<p>If you are enabling project quotas on the root filesystem, add <code>rootflags=pquota</code> to <code>&#47;etc&#47;default&#47;grub</code> (append to <code>GRUB_CMDLINE_LINUX</code>)</p>
+
+<p>For example, editing non-interactively:</p>
+
+<pre><code>sed -e &#39;s&#47;^GRUB_CMDLINE_LINUX="\(.\+\)"$&#47;GRUB_CMDLINE_LINUX="\1 rootflags=pquota"&#47;&#39; &#47;etc&#47;default&#47;grub
+</code></pre>
+
+<p>and then run <code>grub2-mkconfig -o [...grub.cfg]</code> to update kernel boot command options.</p>
+
+<p>For example,</p>
+
+<pre><code>grub2-mkconfig -o  &#47;boot&#47;efi&#47;EFI&#47;centos&#47;grub.cfg
+</code></pre>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2023 John Finigan</p>
+</footer>
+</body>
+</html>
