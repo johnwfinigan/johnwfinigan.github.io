@@ -32,7 +32,7 @@ for md in src/*.md; do
   # convert md to html
   # replace body tag with custom header for css
   # delete last 2 lines (/body /html) for custom footer
-  lowdown -s "$md" |
+  lowdown -m lang:en-US -s "$md" |
     perl -pe 's/^<body>$/`cat src\/header`/e' |
     sed '$d' | sed '$d' >"$temp_html"
 
