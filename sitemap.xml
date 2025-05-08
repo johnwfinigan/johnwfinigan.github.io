@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://johnwfinigan.github.io/Trouble-Enabling-Vertex-AI-With-Terraform.html</loc>
+  </url>
+  <url>
     <loc>https://johnwfinigan.github.io/Azure-CLI-setup-of-SPN-to-Create-Subscriptions.html</loc>
   </url>
   <url>

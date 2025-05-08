@@ -3,12 +3,78 @@
 
   <title>johnwfinigan.github.io</title>
   <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom.xml"/>
-  <updated>2024-08-10T00:00:00Z</updated>
+  <updated>2025-05-07T00:00:00Z</updated>
   <author>
     <name>John Finigan</name>
   </author>
   <id>tag:johnwfinigan.github.io,2015-09-14:blog</id>
   <rights> Copyright 2015-2023 John Finigan </rights>
+<entry>
+<id>tag:johnwfinigan.github.io,2025-05-07:Trouble-Enabling-Vertex-AI-With-Terraform</id>
+<title>Trouble Enabling Vertex AI With Terraform</title>
+<updated>2025-05-07T00:00:00Z</updated>
+<author> <name>John Finigan</name> </author>
+<content>
+
+   Trouble Enabling Vertex AI With Terraform
+     Since at least 2023 some of my older Terraform code bases for Google
+     Cloud would fail when trying to enable the Vertex AI
+     (aiplatform.googleapis.com) or Vertex AI Workbench
+     (notebooks.googleapis.com) APIs on a project. The projects were created
+     with the Google Project Factory Terraform module, but I suspect that the
+     problem is not inherent to that module. Enabling the API by hand would
+     succeed, so while this was annoying, that is how I would work around it.
+     After a one time manual API enablement, the Terraform code would apply
+     cleanly.
+
+     The error code, SERVICECONFIGNOTFOUNDORPERMISSIONDENIED, seemed like it
+     would be a good lead, but didn&#39;t lead to many search engine hits. There
+     were some suggestions that the identity Terraform was running as needed
+     to have Service Usage Admin on the project, and while that may be needed,
+     it was not a fix in my case.
+
+     After many failed attempts to identify the cause, the solution was to
+     update all of the Google Terraform modules involved in the apply. I don&#39;t
+     think any given module&#39;s implementation was the problem. Each module sets
+     constraints on what versions of the Google terraform provider it will
+     accept. Terraform calculates a lowest common denominator and does the
+     apply using that version of the provider. Here, one of the modules was
+     apparently constraining it to use a version of the provider that was too
+     old to handle these APIs. I don&#39;t use many 3rd party modules, and this
+     part of the code was in need of maintenance, so I ended up updating all
+     of them to the latest after testing. This was part of an effort to pin
+     module versions by Git hash, as an unrelated security improvement, and so
+     it was a good time to do it.
+
+     In short, find the modules you have in your Terraform code which use the
+     Google provider, and update them if they are old. Provider version
+     constraints in the old modules may be causing your API enablement to
+     fail.
+
+     Example error:
+
+     [
+       {
+	 &quot;@type&quot;: &quot;type.googleapis.com/google.rpc.PreconditionFailure&quot;,
+	 &quot;violations&quot;: [
+	   {
+	     &quot;subject&quot;: &quot;?error_code=220002\u0026services=aiplatform.googeapis.com&quot;,
+	     &quot;type&quot;: &quot;googleapis.com&quot;
+	   }
+	 ]
+       },
+       {
+	 &quot;@type&quot;: &quot;type.googleapis.com/google.rpc.ErrorInfo&quot;,
+	 &quot;domain&quot;: &quot;serviceusage.googleapis.com&quot;,
+	 &quot;metadata&quot;: {
+	   &quot;services&quot;: &quot;aiplatform.googeapis.com&quot;
+	 },
+	 &quot;reason&quot;: &quot;SERVICE_CONFIG_NOT_FOUND_OR_PERMISSION_DENIED&quot;
+       }
+     ]
+     , forbidden
+
+</content></entry>
 <entry>
 <id>tag:johnwfinigan.github.io,2024-08-10:Azure-CLI-setup-of-SPN-to-Create-Subscriptions</id>
 <title>Azure CLI setup of SPN to Create Subscriptions</title>
@@ -483,19 +549,19 @@
      on that account being a valid OSLogin + IAP instance accessor account.
      That requires:
 
-     o There must be a firewall rule on your VPC networks that allows IAP SSH
-       &lt;https://cloud.google.com/iap/docs/using-tcp-forwarding#create-
-       firewall-rule&gt; to reach instance private IPs from Google&#39;s designated
-       IAP origination range. The instances do not require public IPs.
+     o	There must be a firewall rule on your VPC networks that allows IAP SSH
+	&lt;https://cloud.google.com/iap/docs/using-tcp-forwarding#create-
+	firewall-rule&gt; to reach instance private IPs from Google&#39;s designated
+	IAP origination range. The instances do not require public IPs.
 
-     o The instances must have OSLogin Enabled
-       &lt;https://cloud.google.com/compute/docs/oslogin/set-up-oslogin&gt;
+     o	The instances must have OSLogin Enabled
+	&lt;https://cloud.google.com/compute/docs/oslogin/set-up-oslogin&gt;
 
-     o The Cloud Build service account you use must have the following roles:
+     o	The Cloud Build service account you use must have the following roles:
 
-       o roles/compute.osAdminLogin on the instance or project
-       o roles/iam.serviceAccountUser on the instance&#39;s service account
-       o roles/iap.tunnelResourceAccessor on the project or tunnel
+	o  roles/compute.osAdminLogin on the instance or project
+	o  roles/iam.serviceAccountUser on the instance&#39;s service account
+	o  roles/iap.tunnelResourceAccessor on the project or tunnel
 
      I have not tested with the default Cloud Build service account, but only
      with cloud build running as a custom service account. The Service Account
@@ -504,9 +570,9 @@
      an instance can make requests using its service account, so this
      formalizes the relationship.
 
-     Finally, in your container, you need a small Ansible config file,
-     g-ansible.cfg. I&#39;ve been using this one for Ansible+IAP for years and
-     don&#39;t remember all the details, but some tweaks were required to get file
+     Finally, in your container, you need a small Ansible config file, g-
+     ansible.cfg. I&#39;ve been using this one for Ansible+IAP for years and don&#39;t
+     remember all the details, but some tweaks were required to get file
      transfer (eg. Ansible copy:) to work reliably. You may have to change the
      default interpreter_python based on the Linux version you run in your
      instances. I had to limit forks for stability, but have not extensively

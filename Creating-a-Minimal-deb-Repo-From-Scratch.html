@@ -15,32 +15,19 @@
 
 <main>
 
-
 <h2 id="creating-a-minimal-apt-repo-from-scratch">Creating a Minimal apt Repo From Scratch</h2>
-
 <p>Let&#8217;s say you want to create an apt repo for debs you have built yourself. I spent an hour or two cobbling together these minimalist instructions from various internet sources. The sources I found seemed to be either outdated enough that they were no longer correct for recent tooling and distros, or more complex than what I was trying to accomplish warranted. This is tested against Ubuntu 22.04 clients and servers. Notably, this method has no directory structure inside the repo at all. All files are under the top level directory of the repo. </p>
-
 <h3 id="create-a-gpg-key-for-signing">Create a gpg key for signing</h3>
-
 <p>Use the gpg shipped with Ubuntu 22.04 or whatever client distro you plan to support. Set the <code>Real Name</code> field of your key to whatever you like. Here, it&#8217;s called <code>Mirror Signing Key</code>. Once generated, export your key using the fingerprint shown when it was generated.</p>
-
 <pre><code>gpg --armor --export 73341B91FEC7DCBC8316EE01E45BEE2E63B81095 &#62; MirrorSigningKey.pub
 </code></pre>
-
 <p>This exported key will be copied to your apt clients for apt metadata verification.</p>
-
 <p>Example gpg session at the bottom of this post. In short, it&#8217;s OK to choose <code>RSA and RSA</code>, and set RSA key size to 4096.</p>
-
 <h3 id="populate-your-repo">Populate your repo</h3>
-
 <p>Put your debs in a directory that you intend to serve to your clients. Here, it&#8217;s called <code>$repo_dir</code></p>
-
 <h3 id="install-repo-build-tools">Install repo build tools</h3>
-
 <p>Ensure you have the packages <code>dpkg-deb</code> and <code>apt-utils</code> installed, for the next step.</p>
-
 <h3 id="create-your-apt-repo">Create your apt repo</h3>
-
 <pre><code>#!&#47;bin&#47;bash
 
 set -eu
@@ -58,26 +45,17 @@ gpg  --pinentry-mode loopback --digest-algo SHA512 --batch --yes --no-tty --pass
 gpg  --pinentry-mode loopback --digest-algo SHA512 --batch --yes --no-tty --passphrase $pass --default-key &#39;Mirror Signing Key&#39; -abs --clearsign &#60; Release &#62; InRelease
 unset pass
 </code></pre>
-
 <p>The awkward method of getting the passphrase to gpg is not appropriate for use on untrusted systems, since the passphrase can be read out of <code>&#47;proc</code> while gpg is executing. Proper gpg pin entry methods seem especially fragile on headless systems, and after an hour of frustration trying to debug pinentry, I resorted to it. Someone with better gpg skills could do better. On the other hand, it&#8217;s easy to see how this could be modified to work with a secret manager in a CI system - just replace the <code>read</code> call with a call to your secret manager.</p>
-
 <h3 id="set-up-your-clients">Set up your clients</h3>
-
 <p>On your clients, create the repo definition file and the public signing key file in <code>&#47;etc&#47;apt</code></p>
-
 <pre><code>install -o root -g root -m0644 &#60;(echo &#39;deb [signed-by=&#47;etc&#47;apt&#47;trusted.gpg.d&#47;MirrorSigningKey.pub] https:&#47;&#47;example.org&#47;your&#47;repo .&#47;&#39;) &#47;etc&#47;apt&#47;sources.list.d&#47;your_repo.list
 
 install -o root -g root -m0644 MirrorSigningKey.pub &#47;etc&#47;apt&#47;trusted.gpg.d&#47;
 </code></pre>
-
 <p>Note that I&#8217;m using <code>install</code> here as an all-in-one way to copy data while ensuring that permissions are reasonable. Your preferred way to do that should be fine, regardless.</p>
-
 <h3 id="done">Done</h3>
-
 <p>When you add, update, or remove packages from your repo, simply rerun the repo generation script above.</p>
-
 <h3 id="appendix-gpg-sample-session">Appendix: GPG sample session</h3>
-
 <pre><code>john@s:~$ gpg --full-generate-key
 gpg (GnuPG) 2.2.27; Copyright (C) 2021 Free Software Foundation, Inc.
 This is free software: you are free to change and redistribute it.
@@ -133,7 +111,7 @@ sub   rsa4096 2023-02-06 [E]
 </code></pre>
 </main>
 <footer>
-  <p>Copyright &copy 2015-2024 John Finigan</p>
+  <p>Copyright &copy 2015-2025 John Finigan</p>
 </footer>
 </body>
 </html>

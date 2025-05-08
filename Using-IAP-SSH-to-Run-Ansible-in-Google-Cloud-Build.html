@@ -15,23 +15,14 @@
 
 <main>
 
-
 <h2 id="using-iap-ssh-to-run-ansible-in-google-cloud-build-triggers">Using IAP SSH to run Ansible in Google Cloud Build Triggers</h2>
-
 <p>Google pitches Cloud Build as the &#8220;serverless CI&#47;CD platform&#8221; for Google Cloud (GCP). It&#8217;s easy to use for infrastructure tasks like deploying cloud infrastructure using Terraform. This is great for ensuring that your Terraform build environment is repeatable and not tied to implicit state on a build machine. </p>
-
 <p>When a Cloud Build run is triggered, GCP runs a container of your choosing on a network that is, by default, not part of your customer-controlled VPC network. By default, traffic egressing from your Cloud Build will be seen by your instances as originating from a public IP of Google&#8217;s choosing. This can be a problem if you want to use Cloud Build to run Ansible to configure your instances, since Ansible will typically log in to your instances using SSH. You could allow SSH traffic in from any public IP, but this is bad security practice if your only reason for doing this is admin access.</p>
-
 <p>Another option is to do the config necessary to give Cloud Build access to your customer-controlled VPC network, by using Private Pools, which give a limited amount of control over the machine size and networking of the virtual hardware your builds run on. However, this requires some <a href="https://cloud.google.com/build/docs/private-pools/set-up-private-pool-to-use-in-vpc-network">configuration work</a>, including the use of Private Services Access to connect to your VPC network by VPC peering. Personally, I don&#8217;t find this appealing. It injects a fair amount of accidental complexity for this simple use case.</p>
-
 <p>But, there is another way. Google Cloud offers something called Identity Aware Proxy (IAP), which allows you to tunnel TCP traffic from anywhere to inside your VPC network, without your instances having public IPs. The <code>gcloud compute ssh</code> command has built in IAP support. I use this extensively for general admin access. It generally &#8220;just works&#8221;.</p>
-
 <p>All that remains is to plumb IAP SSH into Ansible, and do it in such a way that it can run in Cloud Build. </p>
-
 <p>The strategy here is to get Ansible to use <code>gcloud compute ssh</code> as its SSH provider, and to pass inventory between them in such a way that <code>gcloud</code> can recognize the instances, which essentially means using the instance name as defined in GCE.</p>
-
 <p>Below is the Dockerfile for a runtime container that is compatible with Cloud Build:</p>
-
 <pre><code>FROM gcr.io&#47;google.com&#47;cloudsdktool&#47;google-cloud-cli:slim
 
 RUN $(gcloud info --format="value(basic.python_location)") -m pip install numpy
@@ -43,11 +34,8 @@ ENV ANSIBLE_CONFIG=&#47;etc&#47;g-ansible.cfg
 COPY g-ssh.sh $ANSIBLE_SSH_EXECUTABLE
 COPY g-ansible.cfg $ANSIBLE_CONFIG
 </code></pre>
-
 <p>This is a Debian-based Google Cloud SDK container. In my testing, an Alpine container had significantly worse performance for Ansible over IAP SSH. Numpy is installed to speed up IAP forwarding performance. In my testing, this improved performance significantly.</p>
-
 <p>Inside this container is <code>g-ssh.sh</code>, where the IAP SSH magic happens.</p>
-
 <pre><code>#!&#47;bin&#47;bash
 
 umask 0077
@@ -78,27 +66,20 @@ gcloud_args=" --ssh-key-expire-after=1h --tunnel-through-iap --quiet --no-user-o
 # project and zone must be already set using gcloud config
 exec gcloud compute ssh "$host" $gcloud_args "$cmd"
 </code></pre>
-
 <p>Note that an ephemeral SSH key is generated but has an expiration set. This key is lost when the build ends, and GCP will remove it from the authorized keys list when it expires after one hour. This is done using the <code>--ssh-key-expire-after</code> argument to gcloud. Thus there are no long lived SSH credentials involved here. I believe this SSH key management feature depends on the use of Google OSLogin on the instances. </p>
-
 <p>This leads the broader subject of roles and identity. The identity that is logging in to the instance and running Ansible commands will be the service account that your Cloud Build build runs as. This setup depends on that account being a valid OSLogin + IAP instance accessor account. That requires:</p>
-
 <ul>
 <li><p>There must be a <a href="https://cloud.google.com/iap/docs/using-tcp-forwarding#create-firewall-rule">firewall rule on your VPC networks that allows IAP SSH</a> to reach instance private IPs from Google&#8217;s designated IAP origination range. The instances do not require public IPs.</p></li>
 <li><p>The instances must have <a href="https://cloud.google.com/compute/docs/oslogin/set-up-oslogin">OSLogin Enabled</a></p></li>
 <li><p>The Cloud Build service account you use must have the following roles:</p>
-
 <ul>
 <li><code>roles&#47;compute.osAdminLogin</code> on the instance or project</li>
 <li><code>roles&#47;iam.serviceAccountUser</code> on the instance&#8217;s service account</li>
 <li><code>roles&#47;iap.tunnelResourceAccessor</code> on the project or tunnel</li>
 </ul></li>
 </ul>
-
 <p>I have not tested with the default Cloud Build service account, but only with cloud build running as a custom service account. The Service Account User role may seem surprising, but OSLogin requires this for any account to be able to log in. I believe it is because any account that logs in to an instance can make requests using its service account, so this formalizes the relationship.  </p>
-
 <p>Finally, in your container, you need a small Ansible config file, <code>g-ansible.cfg</code>. I&#8217;ve been using this one for Ansible+IAP for years and don&#8217;t remember all the details, but some tweaks were required to get file transfer (eg. Ansible <code>copy:</code>) to work reliably. You may have to change the default <code>interpreter_python</code> based on the Linux version you run in your instances. I had to limit <code>forks</code> for stability, but have not extensively debugged to see what could be done to speed this up again.</p>
-
 <pre><code>[ssh_connection]
 pipelining = True
 ssh_args =
@@ -108,9 +89,7 @@ transfer_method = piped
 forks = 1
 interpreter_python = &#47;usr&#47;bin&#47;python3
 </code></pre>
-
 <p>Here&#8217;s a sample <code>cloudbuild.yaml</code> that uses this container to run Ansible through IAP in Cloud Build:</p>
-
 <pre><code>steps:
 
 - id: &#39;test ansible&#39;
@@ -123,13 +102,11 @@ interpreter_python = &#47;usr&#47;bin&#47;python3
     gcloud config set compute&#47;zone us-central1-a ;
     ansible-playbook -i .&#47;test.ini test.yml
 </code></pre>
-
 <p>Note that you must set the project and zone in your build step. That is how <code>g-ssh.sh</code> knows how to find your instances by name.</p>
-
 <p>This has worked well for me. Speed has been acceptable, but a more optimized build might create the IAP tunnels directly instead of using the <code>gcloud compute ssh</code> helper. This would allow using unwrapped openssh to access the instances, but would require some more complex state tracking that I have not yet spent time on.</p>
 </main>
 <footer>
-  <p>Copyright &copy 2015-2024 John Finigan</p>
+  <p>Copyright &copy 2015-2025 John Finigan</p>
 </footer>
 </body>
 </html>

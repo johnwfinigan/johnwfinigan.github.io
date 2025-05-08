@@ -15,15 +15,10 @@
 
 <main>
 
-
 <h2 id="using-ssh-over-iap-tcp-forwarding-to-build-compute-images-with-packer-in-google-cloud-build">Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in Google Cloud Build</h2>
-
 <p><a href="./Using-IAP-SSH-to-Run-Ansible-in-Google-Cloud-Build.html">Previously I wrote</a> about using Google Identity Aware Proxy based SSH to run Ansible within Google Cloud Build without needing a firewall penetration or network peering between Cloud Build and the target VMs, and without the target VMs needing public IPs. In this post I&#8217;ll show how to use IAP TCP forwarding to build compute images using Hashicorp Packer running in Cloud Build, also without direct networking between Cloud Build and the ephemeral VM that Packer uses for the image build.</p>
-
 <p>That previous post documents the necessary IAM and firewall rules needed for full IAP SSH to work, however here we are using IAP TCP forwarding, and SSH authentication is being handled by Packer itself instead of OSLogin, so only a subset of the requirements need to be met: the GCE firewall must allow IAP to communicate with the VM, and the Cloud Build service account must have IAM rights to start a tunnel to the VM (<code>roles&#47;iap.tunnelResourceAccessor</code>)</p>
-
 <p>Example cloudbuild.yaml - <a href="./assets/cloudbuild-packer.yml">Click here</a> to view raw.</p>
-
 <pre><code>steps:
   - name: &#39;hashicorp&#47;packer&#39;
     entrypoint: sh
@@ -59,9 +54,7 @@ options:
   logging: CLOUD_LOGGING_ONLY
 timeout: 3600s
 </code></pre>
-
 <p>Essentially, IAP TCP tunnelling is used to make port 22 on the target VM appear at port 22222 inside the Cloud Build runtime, and directives are added to the packerfile to link this all together, as shown below. In Cloud Build, <code>$BUILD_ID</code> is a built-in variable, but <code>$_BUILD_ZONE</code> is a user-supplied substitution that I am showing here since IAP tunneling and the compute instance have to be coordinated regarding the zone and the build VM&#8217;s name. Your packerfile will contain something like this:</p>
-
 <pre><code>source "googlecompute" "my_build" {
   ...
   ...
@@ -78,13 +71,9 @@ timeout: 3600s
   ...
 }
 </code></pre>
-
 <p>Notably, this is not the prettiest shell scripting. There are probably race conditions in it, and some of the inserted waits may not actually be needed to avoid them. However, I&#8217;ve run a few dozen Linux image builds successfully using this code, and have not experienced a failure to connect yet.</p>
-
 <p>Unlike my Ansible example, here I chose to rely on no custom containers and assemble everything needed using well known images.</p>
-
 <p>As a bonus, here is some terraform you may be able to adapt to set up your firewall and IAM to allow IAP tunnelling to your VMs:</p>
-
 <pre><code>resource "google_compute_firewall" "allow-iap-ssh" {
   name    = "allow-iap-ssh"
   network = google_compute_network.FIXME.name
@@ -110,7 +99,7 @@ module "image-cloudbuild" {
 </code></pre>
 </main>
 <footer>
-  <p>Copyright &copy 2015-2024 John Finigan</p>
+  <p>Copyright &copy 2015-2025 John Finigan</p>
 </footer>
 </body>
 </html>

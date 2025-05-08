@@ -15,22 +15,14 @@
 
 <main>
 
-
 <h2 id="firewalling-linux-nfs-servers-and-openbsd-nfs-clients">Firewalling Linux NFS Servers and OpenBSD NFS Clients</h2>
-
 <p>OpenBSD supports only NFS v3. It does not support NFS v4. While NFS v4 requires only port 2049&#47;tcp to be open between clients and servers, NFS v3 typically requires three or four ports open between a client and a server, and most of these are dynamically chosen and have no fixed port number. NFS v3 predates the widespread use of firewalls and was not designed to be easily firewalled.</p>
-
 <p>In order to firewall NFS v3, the server must be configured to run all needed NFS v3 services on fixed ports. On an OpenBSD client, no special configuration is required on the mount. However, I recommend configuring the mount to run over tcp, both to make firewalling easier and for general robustness. An OpenBSD fstab entry like the following is enough:</p>
-
 <pre><code>172.16.1.6:&#47;srv&#47;data &#47;data nfs rw,tcp 0 0
 </code></pre>
-
 <p>For the Linux server configuration, I will use Ansible and Firewalld, but there&#8217;s nothing special about these and it should be easy to adapt this solution to any firewall or config management method. Ubuntu 22.04 has most NFS server config in <code>&#47;etc&#47;nfs.conf</code>, while older distros such as Ubuntu 20.04 require editing multiple config files. I have configurations for both, below:</p>
-
 <h3 id="linux-nfs-server-firewalld-config">Linux NFS Server Firewalld config</h3>
-
 <p>NFS client is at 172.16.1.77</p>
-
 <pre><code>---
 - name: NFS server firewall config
   become: yes
@@ -50,11 +42,8 @@
       - rule family="ipv4" source address="172.16.1.77&#47;32" port port="111" protocol="udp" accept
       - rule family="ipv4" source address="172.16.1.77&#47;32" port port="50001-50003" protocol="tcp" accept
 </code></pre>
-
 <h3 id="ubuntu-22.04-nfs-server-config">Ubuntu 22.04 NFS Server Config</h3>
-
 <p><code>&#47;etc&#47;nfs.conf</code> is in ini file format. Ansible <code>ini_file</code> makes it easy to edit ini programatically, but if you&#8217;re editing by hand, you can easily pull out the section name, option (key) names, and values below:</p>
-
 <pre><code>  - name: nfs v3 port locking for ubuntu 22.04 server
     ini_file:
       path: &#47;etc&#47;nfs.conf
@@ -69,15 +58,10 @@
       - { s: "lockd", o: "port", v: "50002" }
       - { s: "lockd", o: "udp-port", v: "50004" }
 </code></pre>
-
 <p>All of the various NFS server-related services must be restarted to have this take effect. <code>systemctl restart nfs-server</code> was not sufficient for me. After much fooling around, I gave up and rebooted. I believe the problem may be that some of these services can listen on multiple ports, and a restart causes them to start listening on their new ports, but not abandon their old ports. Which port a new mount request gets is then unpredictable. </p>
-
 <p>Note that we are pinning the lockd UDP port to 50004 for thoroughness, but the tcp-only client will not use it. </p>
-
 <h3 id="ubuntu-20.04-nfs-server-config">Ubuntu 20.04 NFS Server Config</h3>
-
 <p>This configuration, or a close variation on it, should work for any older Ubuntu or RHEL version from the last decade or so. Will not take effect until all NFS server-related services are restarted. </p>
-
 <pre><code>   - name: port locked nfs config 1
      lineinfile:
        line: &#39;options lockd nlm_udpport=50004 nlm_tcpport=50002&#39; 
@@ -105,7 +89,7 @@
 </code></pre>
 </main>
 <footer>
-  <p>Copyright &copy 2015-2024 John Finigan</p>
+  <p>Copyright &copy 2015-2025 John Finigan</p>
 </footer>
 </body>
 </html>

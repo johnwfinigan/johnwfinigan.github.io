@@ -15,17 +15,11 @@
 
 <main>
 
-
 <h2 id="minimum-viable-install-nagios-from-epel-on-centos-7-with-gmail-notifications">Minimum viable install: Nagios from epel on Centos 7, with Gmail notifications</h2>
-
 <p>(Historical post - this is outdated, but parts are likely still useful. It begs for scripting and templating)</p>
-
 <p>This is how I got basic Nagios running on Centos 7, using the Nagios 3.5.1 packages in <a href="https://fedoraproject.org/wiki/EPEL">EPEL</a>. This is basically a reinterpretation of the guide at the <a href="https://assets.nagios.com/downloads/nagioscore/docs/nagioscore/3/en/quickstart-fedora.html">Nagios Fedora Quickstart</a>, except we are installing from packages and not source, and a lot of the paths and commands in Centos 7 are different.</p>
-
 <p>First, to get a basic install running:</p>
-
 <h3 id="as-root">As root:</h3>
-
 <pre><code> rpm -i https:&#47;&#47;dl.fedoraproject.org&#47;pub&#47;epel&#47;epel-release-latest-7.noarch.rpm
  yum install  mod_ssl git nagios*
 
@@ -36,11 +30,8 @@
  firewall-cmd --zone=public --permanent --add-service=http
  firewall-cmd --zone=public --permanent --add-service=https
 </code></pre>
-
 <p>You can&#8217;t add the permanent firewalld rules unless firewalld is already running, so we started it.</p>
-
 <h3 id="next-edit-etchttpdconf.dnagios.conf">Next, edit &#47;etc&#47;httpd&#47;conf.d&#47;nagios.conf</h3>
-
 <pre><code> Remove 2 instances of:
 
  AuthType Basic
@@ -54,29 +45,20 @@
 
  Optionally, uncomment 2 instances of SSLRequireSSL
 </code></pre>
-
 <p>This accomplishes two things. Firstly, it changes the HTTP authentication method so passwords are never sent in cleartext, but rather in hashed form. Secondly, and optionally, it denies access to Nagios over http, and enforces the use of https. Edit &#47;etc&#47;httpd&#47;conf.d&#47;ssl.conf to point it to a signed ssl certificate if desired.</p>
-
 <h3 id="as-root-1">As root:</h3>
-
 <p>In order to use digest passwords instead of plaintext passwords, we have to create the digest password file:</p>
-
 <pre><code> htdigest -c &#47;etc&#47;nagios&#47;digest-passwd "Nagios Access" nagiosadmin
  # will prompt for password
 
  chown root:apache &#47;etc&#47;nagios&#47;digest-passwd
  chmod 640 &#47;etc&#47;nagios&#47;digest-passwd
 </code></pre>
-
 <p>Next, reboot! This is partially out of laziness so we dont have to start the services manually, and partially due to a virtuous desire to see if our services autostart as requested.</p>
-
 <pre><code>reboot
 </code></pre>
-
 <p>At this point you should be able to log in to Nagios on both http and https.</p>
-
 <h3 id="next-edit-etcnagiosobjectscontacts.cfg">Next, edit &#47;etc&#47;nagios&#47;objects&#47;contacts.cfg</h3>
-
 <pre><code>Find the line containing CHANGE THIS TO YOUR EMAIL ADDRESS , and do what it asks.
 
 Append a sample notification contact and contact group to the end of the file:
@@ -100,18 +82,12 @@ define contact {
         email                           sysadmin@example.com   &#60;-- CHANGE THIS!
  }
 </code></pre>
-
 <h3 id="define-some-things-to-monitor">Define some things to monitor</h3>
-
 <p>By default, what you put in &#47;etc&#47;nagios&#47;conf.d&#47; gets monitored.</p>
-
 <pre><code>cd &#47;etc&#47;nagios&#47;conf.d
 </code></pre>
-
 <p>This directory <strong>starts empty</strong> and you can add config files organized however you like. Here&#8217;s one barebones layout, as an example. Don&#8217;t copy and paste, since the hostnames are up to you.</p>
-
 <p>Contents of file &#47;etc&#47;nagios&#47;conf.d&#47;hosts.cfg</p>
-
 <pre><code>define hostgroup{
         hostgroup_name  all-servers ; The name of the hostgroup
         alias           All Servers ; Long name of the group
@@ -125,9 +101,7 @@ define host{
         hostgroups      all-servers             ; Host groups this host is associated with
 }
 </code></pre>
-
 <p>Contents of file &#47;etc&#47;nagios&#47;conf.d&#47;ssh.cfg</p>
-
 <pre><code>define service{
     use             generic-service 
     host_name       myserver.example.com
@@ -135,9 +109,7 @@ define host{
     check_command           check_ssh
 }
 </code></pre>
-
 <p>Contents of file &#47;etc&#47;nagios&#47;conf.d&#47;http.cfg</p>
-
 <pre><code>define service{
     use             generic-service
     host_name       myserver.example.com
@@ -152,45 +124,32 @@ define service{
     check_command           check_http!-S -H mysite.example.com  ; checks https on a different virtual host
 }
 </code></pre>
-
 <p>Important fact: these check commands live in &#47;usr&#47;lib64&#47;nagios&#47;plugins, and can be run manually, including to get help.</p>
-
 <pre><code>&#47;usr&#47;lib64&#47;nagios&#47;plugins&#47;check_http -h
 </code></pre>
-
 <h3 id="test-your-config">Test your config</h3>
-
 <p>If it works, restart Nagios to pick up config file changes. You will do this a lot.</p>
-
 <pre><code>&#47;usr&#47;sbin&#47;nagios -v &#47;etc&#47;nagios&#47;nagios.cfg
 service nagios restart
 </code></pre>
-
 <h3 id="gmail-notifications">Gmail Notifications</h3>
-
 <p>Finally, let&#8217;s get some notifications going. Nagios is ready to notify as soon as we have a working mta. I use gmail, and don&#8217;t want to run a real MTA like sendmail. Taking inspiration from <a href="http://sharadchhetri.com/2013/07/16/how-to-use-email-id-of-gmail-for-sending-nagios-email-alerts/">here</a>, we will use the ssmtp &#8220;send-only sendmail emulator&#8221;, but moving around binaries like in the linked post makes me nervous since the moves will be clobbered by future Centos updates, so we&#8217;ll use the alternatives system to subsititute ssmtp for sendmail instead.</p>
-
 <p>Be very careful if you are already running a MTA like sendmail on your nagios machine and want it to keep working.</p>
-
 <pre><code>yum install ssmtp
 alternatives --install &#47;sbin&#47;sendmail sendmail &#47;sbin&#47;ssmtp 100
 </code></pre>
-
 <p>Then append the following to &#47;etc&#47;ssmtp&#47;ssmtp.conf</p>
-
 <pre><code>AuthUser=my-nagios-sender@gmail.com   &#60;-- CHANGE THIS!
 AuthPass=password123                  &#60;-- CHANGE THIS!
 FromLineOverride=YES
 mailhub=smtp.gmail.com:587
 UseSTARTTLS=YES
 </code></pre>
-
 <h3 id="done">Done!</h3>
-
 <p>This is a start anyway. You can spend as much time as you like refining your config; if anything, the difficulty in getting started is that there are so many options.</p>
 </main>
 <footer>
-  <p>Copyright &copy 2015-2024 John Finigan</p>
+  <p>Copyright &copy 2015-2025 John Finigan</p>
 </footer>
 </body>
 </html>
