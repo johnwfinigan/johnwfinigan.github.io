@@ -27,11 +27,11 @@
      After a one time manual API enablement, the Terraform code would apply
      cleanly.
 
-     The error code, SERVICECONFIGNOTFOUNDORPERMISSIONDENIED, seemed like it
-     would be a good lead, but didn&#39;t lead to many search engine hits. There
-     were some suggestions that the identity Terraform was running as needed
-     to have Service Usage Admin on the project, and while that may be needed,
-     it was not a fix in my case.
+     The error code, SERVICE_CONFIG_NOT_FOUND_OR_PERMISSION_DENIED, seemed
+     like it would be a good lead, but didn&#39;t lead to many search engine hits.
+     There were some suggestions that the identity Terraform was running as
+     needed to have Service Usage Admin on the project, and while that may be
+     needed, it was not a fix in my case.
 
      After many failed attempts to identify the cause, the solution was to
      update all of the Google Terraform modules involved in the apply. I don&#39;t
