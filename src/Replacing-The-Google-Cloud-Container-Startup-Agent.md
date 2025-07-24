@@ -60,8 +60,7 @@ write_files:
   owner: root
   content: |
     {
-      "userns-remap": "default",
-      "log-driver": "journald",
+      "userns-remap": "default"
     }
 
 runcmd:
