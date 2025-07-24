@@ -66,7 +66,7 @@
      inside the running container to unprivileged high UID/GIDs on the host.
      dockerd still runs as root, and in some sense it&#39;s halfway between
      traditional docker and rootless docker. I like it because it&#39;s easy to
-     apply, but for greenfield deploys I prefer to use purely rootless and
+     adopt, but for greenfield deploys I prefer to use purely rootless and
      daemonless podman.
 
      You may also notice that my systemd service definition is simpler than
@@ -111,8 +111,7 @@
        owner: root
        content: |
 	 {
-	   &quot;userns-remap&quot;: &quot;default&quot;,
-	   &quot;log-driver&quot;: &quot;journald&quot;,
+	   &quot;userns-remap&quot;: &quot;default&quot;
 	 }
 
      runcmd:

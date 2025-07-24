@@ -23,7 +23,7 @@
 <p>COS itself is a neat project which I wish was more available in the wider world. It&#8217;s broadly similar to CoreOS, being a stripped down, partially immutable, auto updating container host Linux distro. Like all such distros it&#8217;s quirky, but in general I have found it simple and extremely low maintenance. It&#8217;s a good example of the quality engineering and good taste I expect from GCP at its best.</p>
 <p>The removal of konlet is years away. But, when I got the deprecation email, I decided it would be fun to get this out of the way, so I jumped in. I used the docs I could find at that time, which provided a simple example of replacing konlet with cloud-init and systemd.</p>
 <p>There are now comprehensive <a href="https://cloud.google.com/container-optimized-os/docs/how-to/run-container-instance">docs here</a> which look broadly like my solution. Finding this link earlier would have saved me some time, but it was a good learning experience and I am preserving my solution here as a slightly different example. Nevertheless I recommend you use that link.</p>
-<p>The one advantage of my solution, which you could adapt into Google&#8217;s example, is that I am configuring docker on COS to use <a href="https://docs.docker.com/engine/security/userns-remap/">user namespace remapping</a> by default. This is a security enhancement where docker remaps UID&#47;GIDs inside the running container to unprivileged high UID&#47;GIDs on the host. dockerd still runs as root, and in some sense it&#8217;s halfway between traditional docker and rootless docker. I like it because it&#8217;s easy to apply, but for greenfield deploys I prefer to use purely rootless and daemonless podman. </p>
+<p>The one advantage of my solution, which you could adapt into Google&#8217;s example, is that I am configuring docker on COS to use <a href="https://docs.docker.com/engine/security/userns-remap/">user namespace remapping</a> by default. This is a security enhancement where docker remaps UID&#47;GIDs inside the running container to unprivileged high UID&#47;GIDs on the host. dockerd still runs as root, and in some sense it&#8217;s halfway between traditional docker and rootless docker. I like it because it&#8217;s easy to adopt, but for greenfield deploys I prefer to use purely rootless and daemonless podman. </p>
 <p>You may also notice that my systemd service definition is simpler than Google&#8217;s, but this is just a side effect of my container running to completion and exiting. Docker is run with <code>--rm</code>, so once the container has exited, there is no container to remove. I am also passing <code>--pull=always</code> to replace konlet&#8217;s checking for updated images before running.</p>
 <p>In the end, all I had to do was to remove the konlet instance metadata and add instance metadata containing cloud-init yaml. Cloud-init then configures docker and creates a systemd service which broadly does the same thing as konlet. My changed Terraform and my cloud-init.yml are below.</p>
 <h2 id="terraform-change">Terraform Change</h2>
@@ -54,8 +54,7 @@ write_files:
   owner: root
   content: |
     {
-      "userns-remap": "default",
-      "log-driver": "journald",
+      "userns-remap": "default"
     }
 
 runcmd:
