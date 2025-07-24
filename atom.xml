@@ -3,12 +3,134 @@
 
   <title>johnwfinigan.github.io</title>
   <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom.xml"/>
-  <updated>2025-05-07T00:00:00Z</updated>
+  <updated>2025-07-24T00:00:00Z</updated>
   <author>
     <name>John Finigan</name>
   </author>
   <id>tag:johnwfinigan.github.io,2015-09-14:blog</id>
   <rights> Copyright 2015-2023 John Finigan </rights>
+<entry>
+<id>tag:johnwfinigan.github.io,2025-07-24:Replacing-The-Google-Cloud-Container-Startup-Agent</id>
+<title>Replacing The Google Cloud Container Startup Agent</title>
+<updated>2025-07-24T00:00:00Z</updated>
+<author> <name>John Finigan</name> </author>
+<content>
+
+   Replacing The Google Cloud Container Startup Agent
+     I have a cloud cost reporting batch job that has been running every
+     morning for many years. It emails us a cost summary of our GCP
+     Subaccounts and Azure Subscriptions daily. In this way we reduce the
+     chances of the infinite scalability of the cloud coming into conflict
+     with the finite scalability of our wallets.
+
+     For Enterprise Reasons, it&#39;s more convenient if it runs from a static
+     internal IP, so it runs on straight GCE, using instance schedules to
+     start it every morning and shut it down shortly after. On boot, a
+     reporting container starts and runs to completion and then the day&#39;s work
+     is done.
+
+     If I wanted to rearchitect, I&#39;d probably look at running it in Cloud
+     Batch with a reserved IP attached, but at this point, it runs stably for
+     a dollar or two per month, so it&#39;s not a priority.
+
+     It has always run on Google Container-Optimized OS
+     &lt;https://cloud.google.com/container-optimized-os/docs&gt; aka COS and
+     started the reporting container using Google&#39;s Container Startup Agent
+     &lt;https://github.com/GoogleCloudPlatform/konlet&gt; aka konlet. To date this
+     was a built-in feature of GCE where if you set the right metadata on an
+     instance, konlet would do the rest. However konlet is now deprecated.
+
+     COS itself is a neat project which I wish was more available in the wider
+     world. It&#39;s broadly similar to CoreOS, being a stripped down, partially
+     immutable, auto updating container host Linux distro. Like all such
+     distros it&#39;s quirky, but in general I have found it simple and extremely
+     low maintenance. It&#39;s a good example of the quality engineering and good
+     taste I expect from GCP at its best.
+
+     The removal of konlet is years away. But, when I got the deprecation
+     email, I decided it would be fun to get this out of the way, so I jumped
+     in. I used the docs I could find at that time, which provided a simple
+     example of replacing konlet with cloud-init and systemd.
+
+     There are now comprehensive docs here
+     &lt;https://cloud.google.com/container-optimized-os/docs/how-to/run-container-instance&gt;
+     which look broadly like my solution. Finding this link earlier would have
+     saved me some time, but it was a good learning experience and I am
+     preserving my solution here as a slightly different example. Nevertheless
+     I recommend you use that link.
+
+     The one advantage of my solution, which you could adapt into Google&#39;s
+     example, is that I am configuring docker on COS to use user namespace
+     remapping &lt;https://docs.docker.com/engine/security/userns-remap/&gt; by
+     default. This is a security enhancement where docker remaps UID/GIDs
+     inside the running container to unprivileged high UID/GIDs on the host.
+     dockerd still runs as root, and in some sense it&#39;s halfway between
+     traditional docker and rootless docker. I like it because it&#39;s easy to
+     apply, but for greenfield deploys I prefer to use purely rootless and
+     daemonless podman.
+
+     You may also notice that my systemd service definition is simpler than
+     Google&#39;s, but this is just a side effect of my container running to
+     completion and exiting. Docker is run with --rm, so once the container
+     has exited, there is no container to remove. I am also passing
+     --pull=always to replace konlet&#39;s checking for updated images before
+     running.
+
+     In the end, all I had to do was to remove the konlet instance metadata
+     and add instance metadata containing cloud-init yaml. Cloud-init then
+     configures docker and creates a systemd service which broadly does the
+     same thing as konlet. My changed Terraform and my cloud-init.yml are
+     below.
+
+   Terraform Change
+     In a google_compute_instance resource:
+
+     metadata = {
+	 user-data		= file(&quot;cloud-init.yml&quot;)
+	 # removed gce-container-declaration = my-konlet-data
+     }
+
+   Cloud-init to configure docker and replace konlet
+     #cloud-config
+
+     write_files:
+     - path: /etc/systemd/system/billingcontainer.service
+       permissions: 0644
+       owner: root
+       content: |
+	 [Unit]
+	 Description=Start the billing report container
+
+	 [Service]
+	 Restart=no
+	 ExecStartPre=/usr/bin/docker-credential-gcr configure-docker --registries=us-central1-docker.pkg.dev
+	 ExecStart=/usr/bin/docker run --pull=always --rm us-central1-docker.pkg.dev/myprojectname/reporting-repository/runreport /run.sh
+
+     - path: /etc/docker/daemon.json
+       permissions: 0644
+       owner: root
+       content: |
+	 {
+	   &quot;userns-remap&quot;: &quot;default&quot;,
+	   &quot;log-driver&quot;: &quot;journald&quot;,
+	 }
+
+     runcmd:
+     - mount -t tmpfs -o mode=700 none /root
+     - install -m0644 /dev/null /etc/subuid
+     - install -m0644 /dev/null /etc/subgid
+     - systemctl restart docker
+     - systemctl daemon-reload
+     - systemctl start billingcontainer.service
+
+     Google&#39;s docs suggest setting the HOME environment variable on your
+     service to redirect where docker-credential-gcr writes its config away
+     from /root. If I had known that at the time, I would have done that, but
+     I didn&#39;t, so I simply over-mounted the empty non-writable /root with a
+     tmpfs. Again, you should probably follow their example, but this is just
+     an example of something different.
+
+</content></entry>
 <entry>
 <id>tag:johnwfinigan.github.io,2025-05-07:Trouble-Enabling-Vertex-AI-With-Terraform</id>
 <title>Trouble Enabling Vertex AI With Terraform</title>
@@ -83,11 +205,11 @@
 <content>
 
    Azure CLI setup of SPN to Create Subscriptions
-     Microsoft documents &lt;https://learn.microsoft.com/en-
-     us/azure/developer/terraform/authenticate-to-azure-with-service-
-     principle&gt; how to authenticate Terraform to Azure using a SPN (Service
-     Principal Name) identity. To do anything useful with that SPN, you will
-     need to give it rights on the subscriptions it will be used to manage.
+     Microsoft documents
+     &lt;https://learn.microsoft.com/en-us/azure/developer/terraform/authenticate-to-azure-with-service-principle&gt;
+     how to authenticate Terraform to Azure using a SPN (Service Principal
+     Name) identity. To do anything useful with that SPN, you will need to
+     give it rights on the subscriptions it will be used to manage.
 
      You may want Terraform to be able to create new subscriptions when
      running as your SPN. If you are using Enterprise Agreement billing, this
@@ -102,14 +224,11 @@
      them for use in scripts.
 
      I developed this based on Microsoft docs here
-     &lt;https://learn.microsoft.com/en-us/azure/cost-management-
-     billing/manage/assign-roles-azure-service-principals#assign-the-
-     subscription-creator-role-to-the-spn&gt; and here
-     &lt;https://learn.microsoft.com/en-us/rest/api/billing/role-
-     assignments/put?view=rest-billing-2019-10-01-preview&amp;tabs=HTTP&gt; and a
-     Stack Overflow answer here
-     &lt;https://stackoverflow.com/questions/56645576/activation-of-service-
-     principal-as-account-owner-in-the-ea-portal-via-powershell&gt;.
+     &lt;https://learn.microsoft.com/en-us/azure/cost-management-billing/manage/assign-roles-azure-service-principals#assign-the-subscription-creator-role-to-the-spn&gt;
+     and here
+     &lt;https://learn.microsoft.com/en-us/rest/api/billing/role-assignments/put?view=rest-billing-2019-10-01-preview&amp;tabs=HTTP&gt;
+     and a Stack Overflow answer here
+     &lt;https://stackoverflow.com/questions/56645576/activation-of-service-principal-as-account-owner-in-the-ea-portal-via-powershell&gt;.
 
      Script below is for Enterprise Agreement billing only. If you are using
      &quot;Credit Card&quot; type billing it won&#39;t work for you.
@@ -234,8 +353,7 @@
      This approach uses a template for the systemd slice that a user&#39;s login
      session is added to on login. This allows you to use standard systemd
      resource controls as defined in the systemd documentation
-     &lt;https://www.freedesktop.org/software/systemd/man/systemd.resource-
-     control.html&gt;
+     &lt;https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html&gt;
 
      At /etc/systemd/system/user-.slice.d/50-userlimits.conf create the
      following:
@@ -262,14 +380,15 @@
 
    Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in
      Google Cloud Build
-     Previously I wrote &lt;./Using-IAP-SSH-to-Run-Ansible-in-Google-Cloud-
-     Build.html&gt; about using Google Identity Aware Proxy based SSH to run
-     Ansible within Google Cloud Build without needing a firewall penetration
-     or network peering between Cloud Build and the target VMs, and without
-     the target VMs needing public IPs. In this post I&#39;ll show how to use IAP
-     TCP forwarding to build compute images using Hashicorp Packer running in
-     Cloud Build, also without direct networking between Cloud Build and the
-     ephemeral VM that Packer uses for the image build.
+     Previously I wrote
+     &lt;./Using-IAP-SSH-to-Run-Ansible-in-Google-Cloud-Build.html&gt; about using
+     Google Identity Aware Proxy based SSH to run Ansible within Google Cloud
+     Build without needing a firewall penetration or network peering between
+     Cloud Build and the target VMs, and without the target VMs needing public
+     IPs. In this post I&#39;ll show how to use IAP TCP forwarding to build
+     compute images using Hashicorp Packer running in Cloud Build, also
+     without direct networking between Cloud Build and the ephemeral VM that
+     Packer uses for the image build.
 
      That previous post documents the necessary IAM and firewall rules needed
      for full IAP SSH to work, however here we are using IAP TCP forwarding,
@@ -400,11 +519,11 @@
 
      I have never had good luck with the instructions generally found online
      for polyinstantiation, such as these
-     &lt;https://www.redhat.com/en/blog/polyinstantiating-tmp-and-vartmp-
-     directories&gt;. They&#39;ve generally resulted in a broken system for me. The
-     following works for me on RHEL 8. I haven&#39;t modified pam.d files because
-     namespace support was already there by default. I did not manually create
-     the polyinstantiation roots, because I am using the automatic creation
+     &lt;https://www.redhat.com/en/blog/polyinstantiating-tmp-and-vartmp-directories&gt;.
+     They&#39;ve generally resulted in a broken system for me. The following works
+     for me on RHEL 8. I haven&#39;t modified pam.d files because namespace
+     support was already there by default. I did not manually create the
+     polyinstantiation roots, because I am using the automatic creation
      feature below.
 
      ---
@@ -465,11 +584,11 @@
      to your customer-controlled VPC network, by using Private Pools, which
      give a limited amount of control over the machine size and networking of
      the virtual hardware your builds run on. However, this requires some
-     configuration work &lt;https://cloud.google.com/build/docs/private-
-     pools/set-up-private-pool-to-use-in-vpc-network&gt;, including the use of
-     Private Services Access to connect to your VPC network by VPC peering.
-     Personally, I don&#39;t find this appealing. It injects a fair amount of
-     accidental complexity for this simple use case.
+     configuration work
+     &lt;https://cloud.google.com/build/docs/private-pools/set-up-private-pool-to-use-in-vpc-network&gt;,
+     including the use of Private Services Access to connect to your VPC
+     network by VPC peering. Personally, I don&#39;t find this appealing. It
+     injects a fair amount of accidental complexity for this simple use case.
 
      But, there is another way. Google Cloud offers something called Identity
      Aware Proxy (IAP), which allows you to tunnel TCP traffic from anywhere
@@ -550,9 +669,9 @@
      That requires:
 
      o	There must be a firewall rule on your VPC networks that allows IAP SSH
-	&lt;https://cloud.google.com/iap/docs/using-tcp-forwarding#create-
-	firewall-rule&gt; to reach instance private IPs from Google&#39;s designated
-	IAP origination range. The instances do not require public IPs.
+	&lt;https://cloud.google.com/iap/docs/using-tcp-forwarding#create-firewall-rule&gt;
+	to reach instance private IPs from Google&#39;s designated IAP origination
+	range. The instances do not require public IPs.
 
      o	The instances must have OSLogin Enabled
 	&lt;https://cloud.google.com/compute/docs/oslogin/set-up-oslogin&gt;
@@ -877,9 +996,9 @@
      This is how I got basic Nagios running on Centos 7, using the Nagios
      3.5.1 packages in EPEL &lt;https://fedoraproject.org/wiki/EPEL&gt;. This is
      basically a reinterpretation of the guide at the Nagios Fedora Quickstart
-     &lt;https://assets.nagios.com/downloads/nagioscore/docs/nagioscore/3/en/quickstart-
-     fedora.html&gt;, except we are installing from packages and not source, and
-     a lot of the paths and commands in Centos 7 are different.
+     &lt;https://assets.nagios.com/downloads/nagioscore/docs/nagioscore/3/en/quickstart-fedora.html&gt;,
+     except we are installing from packages and not source, and a lot of the
+     paths and commands in Centos 7 are different.
 
      First, to get a basic install running:
 
@@ -1025,12 +1144,11 @@
      Finally, let&#39;s get some notifications going. Nagios is ready to notify as
      soon as we have a working mta. I use gmail, and don&#39;t want to run a real
      MTA like sendmail. Taking inspiration from here
-     &lt;http://sharadchhetri.com/2013/07/16/how-to-use-email-id-of-gmail-for-
-     sending-nagios-email-alerts/&gt;, we will use the ssmtp &quot;send-only sendmail
-     emulator&quot;, but moving around binaries like in the linked post makes me
-     nervous since the moves will be clobbered by future Centos updates, so
-     we&#39;ll use the alternatives system to subsititute ssmtp for sendmail
-     instead.
+     &lt;http://sharadchhetri.com/2013/07/16/how-to-use-email-id-of-gmail-for-sending-nagios-email-alerts/&gt;,
+     we will use the ssmtp &quot;send-only sendmail emulator&quot;, but moving around
+     binaries like in the linked post makes me nervous since the moves will be
+     clobbered by future Centos updates, so we&#39;ll use the alternatives system
+     to subsititute ssmtp for sendmail instead.
 
      Be very careful if you are already running a MTA like sendmail on your
      nagios machine and want it to keep working.
