@@ -355,11 +355,10 @@
      &lt;https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html&gt;
 
      At /etc/systemd/system/user-.slice.d/50-userlimits.conf create the
-     following:
+     following (adjust values to taste):
 
      [Slice]
      MemoryMax=50G
-     TasksMax=512
      CPUQuota=400%
 
      For a given user UID, you can then check some stats, including memory

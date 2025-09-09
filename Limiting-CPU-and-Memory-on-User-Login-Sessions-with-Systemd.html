@@ -18,10 +18,9 @@
 <h2 id="limiting-cpu-and-memory-on-user-login-sessions-with-systemd">Limiting CPU and Memory on User Login Sessions with Systemd</h2>
 <p>On multiuser Linux systems you may need to limit the memory and CPU use of interactive users so that one user cannot hog or crash the box. There&#8217;s several ways to do this, but I find the systemd approach to be the cleanest. On older systems like RHEL 7 you can still use cgroups with the <code>cgred</code> approach, and on really old systems there is still <code>ulimit</code></p>
 <p>This approach uses a template for the systemd slice that a user&#8217;s login session is added to on login. This allows you to use standard systemd resource controls as defined in <a href="https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html">the systemd documentation</a></p>
-<p>At <code>&#47;etc&#47;systemd&#47;system&#47;user-.slice.d&#47;50-userlimits.conf</code> create the following:</p>
+<p>At <code>&#47;etc&#47;systemd&#47;system&#47;user-.slice.d&#47;50-userlimits.conf</code> create the following (adjust values to taste):</p>
 <pre><code>[Slice]
 MemoryMax=50G
-TasksMax=512
 CPUQuota=400%
 </code></pre>
 <p>For a given user UID, you can then check some stats, including memory usage,  on their slice using <code>systemctl</code> - for example:</p>

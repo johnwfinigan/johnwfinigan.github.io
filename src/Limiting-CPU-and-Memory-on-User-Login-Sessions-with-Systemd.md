@@ -10,12 +10,11 @@ On multiuser Linux systems you may need to limit the memory and CPU use of inter
 
 This approach uses a template for the systemd slice that a user's login session is added to on login. This allows you to use standard systemd resource controls as defined in [the systemd documentation](https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html)
 
-At ```/etc/systemd/system/user-.slice.d/50-userlimits.conf``` create the following:
+At ```/etc/systemd/system/user-.slice.d/50-userlimits.conf``` create the following (adjust values to taste):
 
 ```
 [Slice]
 MemoryMax=50G
-TasksMax=512
 CPUQuota=400%
 ```
 
