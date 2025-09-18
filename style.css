@@ -72,3 +72,17 @@ img {
     padding: 1rem;
   }
 }
+
+/* Tables */
+table, td, th {
+  border: 1px solid #d6b36c;
+  text-align: left;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 10px;
+}
