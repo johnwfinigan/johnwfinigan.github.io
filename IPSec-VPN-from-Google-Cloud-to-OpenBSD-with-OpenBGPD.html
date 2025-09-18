@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="date" scheme="YYYY-MM-DD" content="2025-09-18" />
+<link rel="stylesheet" href="style.css" />
+<title>IPsec VPN from Google Cloud to OpenBSD with OpenBGPD</title>
+</head>
+<body>
+
+  <header>
+    <h1><a href="https://johnwfinigan.github.io">johnwfinigan.github.io</a></h1>
+  </header>
+
+<main>
+
+<h2 id="ipsec-vpn-from-google-cloud-to-openbsd-with-openbgpd">IPsec VPN from Google Cloud to OpenBSD with OpenBGPD</h2>
+<p>Like most public clouds, Google Cloud offers a managed IPsec site-to-site VPN gateway to allow you to build hybrid networks.</p>
+<p>This a quick guide to configuring OpenBSD as the on-premises IPsec tunnel provider and router, including use of 
+the built-in OpenBSD iked for IPSec and built-in OpenBGPD to exchange routes with GCP. At the time of testing, I was using
+OpenBSD 7.7.</p>
+<p>I am mainly trying to show how to do this with OpenBSD, and will not cover the GCP side beyond saying that you can use the 
+Web UI wizard for creating the VPN tunnel, and if you want to use BGP for routing, you must deploy a HA VPN and not a 
+Classic VPN.</p>
+<p>This is more of a starting point than a production ready setup. I am not an expert in these topics, and I&#8217;m sure that 
+things like pf rules and cipher choices should be tuned further. For simplicity, I took the Web UI option of creating
+a single tunnel, but production setups should probably use at least dual tunnels.</p>
+<p>Once you create your tunnel (including its associated VPN Gateway and Cloud Router) in GCP, you will have some pieces of 
+critical information available for the rest of the setup:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cloud VPN Gateway Public IP</td>
+<td>198.51.100.5</td>
+</tr>
+<tr>
+<td>Cloud Router BGP IP</td>
+<td>169.254.149.89</td>
+</tr>
+<tr>
+<td>Cloud Router BGP ASN</td>
+<td>65516</td>
+</tr>
+<tr>
+<td>BGP peer IP (on-prem)</td>
+<td>169.254.149.90</td>
+</tr>
+<tr>
+<td>BGP Peer ASN (on-prem)</td>
+<td>65515</td>
+</tr>
+</tbody>
+</table>
+<p>In addition you&#8217;ll have some information about your networks you&#8217;re routing between cloud and on-prem:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Your on-prem public IP</td>
+<td>203.0.113.7</td>
+</tr>
+<tr>
+<td>Your on-prem local subnet</td>
+<td>172.16.10.0&#47;24</td>
+</tr>
+<tr>
+<td>Your GCP subnet #1</td>
+<td>10.0.8.0&#47;24</td>
+</tr>
+<tr>
+<td>Your GCP subnet #2</td>
+<td>10.0.9.0&#47;24</td>
+</tr>
+</tbody>
+</table>
+<p>Note that GCP&#8217;s BGP session here is listening on an ipv4 link-local address. This is not a problem, but we will have
+to include it in the tunnel and also have an interface on OpenBSD for bgpd to bind to. Thus, our first OpenBSD config item,
+to create a gif virtual interface.</p>
+<pre><code>$ cat &#47;etc&#47;hostname.gif0
+inet 169.254.149.90 255.255.255.252 169.254.149.89
+</code></pre>
+<p>You can run <code>sh &#47;etc&#47;netstart</code> to create or update this virtual interface, once <code>&#47;etc&#47;hostname.gif0</code> exists.</p>
+<p>Next, create <code>&#47;etc&#47;iked.conf</code> to set up the IPSec tunnel:</p>
+<pre><code>
+ikev2 "gcpvpn" active esp \
+    from 169.254.149.90&#47;32 to 169.254.149.89&#47;32  \
+    from 172.16.10.0&#47;24 to 10.0.8.0&#47;23 \
+    local 203.0.113.7 peer 198.51.100.5 \
+    ikesa \
+      enc aes-256 auth hmac-sha2-256 \
+      group modp2048 \
+    srcid 203.0.113.7 \
+    dstid 198.51.100.5 \
+    psk "FAKE_FIXME"
+</code></pre>
+<p>Here you can see I have created security associations (tunnels) between both the BGP link local addresses, and the local and remote networks.
+I have summarized the two &#47;24 cloud networks down to one &#47;23.</p>
+<p>You will also need some rules in <code>pf.conf</code> to pass ipsec and BGP traffic. You&#8217;ll have to adjust this based on your local pf config, but this is the core of it:</p>
+<pre><code>
+# Remember, this is just a snippet to add to 
+# your existing pf.conf 
+# It&#39;s not a complete pf.conf
+# We assume int_if is already trusted
+# with something like pass in quick on $int_if
+
+int_net = "172.16.10.0&#47;24"
+gcp_net = "10.0.8.0&#47;23"
+
+# Begin ipsec and bgp rules
+vpn_if = "enc0"
+gcp_vpn_peer = "198.51.100.5"
+pass in log quick on $vpn_if from $gcp_net to $int_net
+bgp_peer_gcp = "169.254.149.89"
+bgp_peer_local = "169.254.149.90"
+# Allow incoming VPN traffic (IKE and ESP).
+pass in quick on $ext_if proto esp from $gcp_vpn_peer to any
+pass in quick on $ext_if proto udp from $gcp_vpn_peer to any port { 500, 4500 }
+# Allow BGP traffic over the IPsec tunnel.
+pass in quick on $ext_if proto tcp from $bgp_peer_gcp to $bgp_peer_local port 179
+pass out quick on $ext_if proto tcp from $bgp_peer_local to $bgp_peer_gcp port 179
+# End ipsec and bgp rules
+</code></pre>
+<p>It bears repeating that these rules are being added to a setup where the OpenBSD router&#8217;s internal LAN interfaces already
+have a pf rule that allows traffic inbound from them. If not, you will need a new rule which allows traffic from <code>int_net</code>
+to <code>gcp_net</code>, just like its inverse which is above.</p>
+<p>Once these rules are in place, you can run <code>rcctl enable iked</code> and <code>rcctl start iked</code> and you should then have 
+active security associations and your VPN gateway in GCP should &#8220;go green"</p>
+<pre><code>
+# ikectl show sa                                                                                                                                                                                          
+iked_sas: 0xc8e0977720 rspi 0x89919a0ae17b9893 ispi 0xb502da797c203a8e 203.0.113.7:500-&#62;198.51.100.5:500&#60;IPV4&#47;198.51.100.5&#62;[] ESTABLISHED i nexti 0x0 pol 0xc8fafbb000
+  sa_childsas: 0xc8e098f480 ESP 0x3f52449e out 203.0.113.7:500 -&#62; 198.51.100.5:500 (L) B=0x0 P=0xc8e096fa80 @0xc8e0977720
+  sa_childsas: 0xc8e096fa80 ESP 0x9bbfc7dd in 198.51.100.5:500 -&#62; 203.0.113.7:500 (LA) B=0x0 P=0xc8e098f480 @0xc8e0977720
+  sa_flows: 0xc8e0957400 ESP out 172.16.10.0&#47;24 -&#62; 10.0.8.0&#47;23 [0]@-1 (L) @0xc8e0977720
+  sa_flows: 0xc8e0985800 ESP in 10.0.8.0&#47;23 -&#62; 172.16.10.0&#47;24 [0]@-1 (L) @0xc8e0977720
+  sa_flows: 0xc8e0965c00 ESP out 169.254.149.90&#47;32 -&#62; 169.254.149.89&#47;32 [0]@-1 (L) @0xc8e0977720
+  sa_flows: 0xc8e0965800 ESP in 169.254.149.89&#47;32 -&#62; 169.254.149.90&#47;32 [0]@-1 (L) @0xc8e0977720
+iked_activesas: 0xc8e098f480 ESP 0x3f52449e out 203.0.113.7:500 -&#62; 198.51.100.5:500 (L) B=0x0 P=0xc8e096fa80 @0xc8e0977720
+iked_activesas: 0xc8e096fa80 ESP 0x9bbfc7dd in 198.51.100.5:500 -&#62; 203.0.113.7:500 (LA) B=0x0 P=0xc8e098f480 @0xc8e0977720
+iked_flows: 0xc8e0985800 ESP in 10.0.8.0&#47;23 -&#62; 172.16.10.0&#47;24 [0]@-1 (L) @0xc8e0977720
+iked_flows: 0xc8e0965800 ESP in 169.254.149.89&#47;32 -&#62; 169.254.149.90&#47;32 [0]@-1 (L) @0xc8e0977720
+iked_flows: 0xc8e0957400 ESP out 172.16.10.0&#47;24 -&#62; 10.0.8.0&#47;23 [0]@-1 (L) @0xc8e0977720
+iked_flows: 0xc8e0965c00 ESP out 169.254.149.90&#47;32 -&#62; 169.254.149.89&#47;32 [0]@-1 (L) @0xc8e0977720
+iked_dstid_sas: 0xc8e0977720 rspi 0x89919a0ae17b9893 ispi 0xb502da797c203a8e 203.0.113.7:500-&#62;198.51.100.5:500&#60;IPV4&#47;198.51.100.5&#62;[] ESTABLISHED i nexti 0x0 pol 0xc8fafbb000
+</code></pre>
+<p>Note that sa_flows exist for all our desired connectivity. Now that the tunnel is up, you can configure bgpd.conf: </p>
+<pre><code>
+AS 65515
+router-id 169.254.149.90
+
+network 172.16.10.0&#47;24
+
+neighbor 169.254.149.89 {
+    remote-as 65516
+    descr "GCP VPN Gateway"
+}
+
+allow to 169.254.149.89 prefix { 172.16.10.0&#47;24 }
+allow from 169.254.149.89 prefix { 10.0.8.0&#47;24, 10.0.9.0&#47;24 }
+</code></pre>
+<p>Note that we are filtering routes inbound and outbound, but can&#8217;t summarize the 10. prefix because that is not what GCP is sending.</p>
+<p>You can now run <code>rcctl enable bgpd</code> followed by <code>rcctl start bgpd</code> and after a quick wait, should see something like this:</p>
+<pre><code>
+r# bgpctl show rib                                                                                                                                                                                         
+flags: * = Valid, &#62; = Selected, I = via IBGP, A = Announced,
+       S = Stale, E = Error, F = Filtered, L = Leaked
+origin validation state: N = not-found, V = valid, ! = invalid
+aspa validation state: ? = unknown, V = valid, ! = invalid
+origin: i = IGP, e = EGP, ? = Incomplete
+
+flags  vs destination          gateway          lpref   med aspath origin
+*&#62;    N-? 10.0.8.0&#47;24          169.254.149.89    100   100 65516 ?
+*&#62;    N-? 10.0.9.0&#47;24          169.254.149.89    100   100 65516 ?
+AI*&#62;  N-? 172.16.10.0&#47;24       0.0.0.0           100     0 i
+</code></pre>
+<p>Importantly, our inbound routes on the 10. prefixes are showing <code>*&#62;</code> which means &#8220;Valid and Selected&#8221;. 
+If you run <code>netstat -rn</code> you should see them in your OpenBSD router&#8217;s system routes.</p>
+<p>At this point you should be able to ping hosts bidirectionally. On the OpenBSD router, you will probably need to use something
+like <code>ping -S 172.16.10.1 10.0.9.2</code> to ensure the ping originates from an interface that can route to the VPN.</p>
+<p>For troubleshooting you can employ <code>tcpdump -i enc0</code> to see what is going over the tunnel, and similarly for <code>gif0</code></p>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2025 John Finigan</p>
+</footer>
+</body>
+</html>
