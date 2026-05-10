@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="date" scheme="YYYY-MM-DD" content="2026-05-10" />
+<link rel="stylesheet" href="style.css" />
+<title>OpenBSD as a single-stack DHCPv6 client</title>
+</head>
+<body>
+
+  <header>
+    <h1><a href="https://johnwfinigan.github.io">johnwfinigan.github.io</a></h1>
+  </header>
+
+<main>
+
+<h2 id="openbsd-as-a-single-stack-dhcpv6-client">OpenBSD as a single-stack DHCPv6 client</h2>
+<p>I wanted to try running OpenBSD as a single-stack IPv6 host on a network where <code>dnsmasq</code> provides stateful DHCPv6. This is a less common deployment case than using SLAAC with or without stateless DHCPv6, but it has the advantage that it allows <code>dnsmasq</code> to register a FQDN for the client in its local DNS, so that the client can be accessed by name on the local LAN without further configuration. My relevant <code>dnsmasq</code> config is this:</p>
+<pre><code>enable-ra
+dhcp-range=::10,::ffff,constructor:br6,64,12h
+</code></pre>
+<p>The <code>dhcp-range</code> line implicitly has it serving stateful DHCPv6 on a range derived from the prefix delegated to interface br6, with a prefix length of 64 and a 12 hour lease.</p>
+<p>I tried a few linux clients and they all seemed to pick it up without further configuration, but OpenBSD did not. It seems like as of 7.9-current, there is no support for requesting <code>IA_NA</code> addressing (a non-temporary v6 address for the host) using only base. <code>dhcp6leased</code> is specialized for requesting <code>IA_PD</code> (prefix delegation) only.</p>
+<p>However, <code>dhcpcd</code> in ports can request <code>IA_NA</code>. So I temporarily assigned an address by hand using <code>ifconfig</code> just long enough to do <code>pkg_add dhcpcd</code> and came up with the following for <code>&#47;etc&#47;dhcpcd.conf</code></p>
+<pre><code>ipv6only
+hostname "obsd"
+interface vio0
+ipv6rs
+ia_na 1
+</code></pre>
+<p>At first this only partially worked. It was getting a v6 address and a DNS server from DHCPv6, but actual outbound access was failing. The reason was, DNS lookups were still returning A records, and something was assigning an APIPA v4 (169.254 autoconfigured link local) address to the NIC (vio0). <code>route show</code> was indeed showing broken v4 routes related to this. </p>
+<p>The solution was disabling the start of both <code>dhcpleased</code> and <code>dhcp6leased</code> and adding <code>ipv6only</code> to the <code>dhcpcd</code> config, preventing anything from trying v4 configuration.</p>
+<p>After that things are working fine. OpenBSD is now pulling a v6 address via DHCPv6 and working well as a single stack client.</p>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2026 John Finigan</p>
+</footer>
+</body>
+</html>
