@@ -1,7 +1,7 @@
 title: OpenBSD Home Internet Routing
 date: 2026-02-27
 css: style.css
-tags: openbsd
+tags: openbsd routing
 
 ## OpenBSD Home Internet Routing
 

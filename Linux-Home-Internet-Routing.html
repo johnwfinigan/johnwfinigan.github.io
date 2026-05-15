@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="date" scheme="YYYY-MM-DD" content="2026-05-15" />
+<link rel="stylesheet" href="style.css" />
+<title>Linux Home Internet Routing</title>
+</head>
+<body>
+
+  <header>
+    <h1><a href="https://johnwfinigan.github.io">johnwfinigan.github.io</a></h1>
+  </header>
+
+<main>
+
+<h2 id="linux-home-internet-routing">Linux Home Internet Routing</h2>
+<p>After nearly a decade of routing home internet with OpenBSD, I wanted to try something different and try out the operational &#8220;feel&#8221; of Linux in this role.</p>
+<p>As on my OpenBSD setup, the major functions are firewall, IPv4 NAT, IPv6 forwarding, IPv6 prefix delegation requested through DHCPv6, IPv6 SLAAC assignment, IPv4 DHCP server, and DNS caching resolver.</p>
+<p>The first decision to be made was what distro to use. I have good experience with both Debian and Red Hat flavored distros, but lean more to the Red Hat flavored side, especially for servers. I&#8217;ve also got some experience with image based distros, and wanted to try that here. So I started out with openSUSE Leap Micro 16 and ran that for a few weeks. It was a decent experience, but I found myself fighting it a little too much, so I reinstalled to Fedora. So far, I&#8217;m satisfied with Fedora in this role, and I think the combo of huge software selection and &#8220;close to upstream&#8221; versioning cadence suits this role.</p>
+<p>Unlike my OpenBSD config, a few larger more monolithic pieces of software provide most of the major functions. </p>
+<p>Firewalling and forwarding&#47;NAT are configured using <code>firewalld</code>. This barely requires any configuration at all: I moved my WAN interface into the <code>external</code> zone and my LAN interfaces into the <code>trusted</code> zone, and forwarding&#47;NAT is taken care of. I set the <code>firewalld</code> default target to <code>drop</code>. I assigned my interfaces to zones using the NetworkManager <code>connection.zone</code> property, but it could have been done with <code>firewall-cmd</code> instead.</p>
+<p>NetworkManager is the part of the stack I am least fond of. I find it clunky and hard to manage declaratively. I tried to get it to handle my DHCPv6 prefix delegation from my ISP, but could not get it to work. Instead, I set <code>ipv6.method=ignore</code> on all interfaces and installed <code>dhcpcd</code> to handle this. This works fine.</p>
+<p>My favorite part of this build is use of <code>dnsmasq</code> for SLAAC &#47; router advertisements, DHCPv4 server, and DNS caching resolver. Later I also added static DHCPv6 service on a v6 single stack subnet. This allows v6 clients to get their hostnames registered in <code>dnsmasq</code>, such that clients on my LAN can automatically resolve them. I have <code>dnsmasq</code> using <code>stubby</code> listening on localhost as its DNS forwarder, so that all DNS queries forwarded by <code>dnsmasq</code> leave my network as DNS-over-TLS protected queries.</p>
+<p>One of my goals for this setup was to be able to run KVM guests on the router hardware. This worked out well. Currently all guests are attached to a bridge interface that <code>dhcpcd</code> is delegating a &#47;64 prefix to. The bridge has no physical interface associated. All access to the guests is routed from my LAN to the bridge. So far this has been an interesting ipv6-centric setup.</p>
+<p>A few config files of interest:</p>
+<pre><code># &#47;etc&#47;dhcpcd.conf
+ipv6only
+noipv6rs
+script ""
+allowinterfaces enp1s0f0 enp1s0f1 br6
+interface enp1s0f0
+        ipv6rs
+        ia_na 1
+        # Reserve two &#47;64s individually to work around
+        # ISP not supporting larger delegations
+        ia_pd 2&#47;::&#47;64 enp1s0f1&#47;0
+        ia_pd 3&#47;::&#47;64 br6&#47;0
+</code></pre>
+<pre><code># &#47;etc&#47;dnsmasq.d&#47;10-local-dnsmasq.conf 
+interface=enp1s0f1
+interface=br6
+bind-interfaces
+enable-ra
+port=53
+domain-needed
+bogus-priv
+no-resolv
+no-poll
+cache-size=5000
+# Use Stubby as upstream DNS over TLS proxy
+server=127.0.0.1#5454
+log-dhcp
+
+# LAN gets SLAAC and DHCPv4
+dhcp-range=::,constructor:enp1s0f1,ra-only
+dhcp-range=172.16.1.150,172.16.1.250,8h
+
+# KVM bridge gets stateful DHCPv6 only
+dhcp-range=::10,::ffff,constructor:br6,64,12h
+
+expand-hosts
+domain=example.com
+</code></pre>
+<p>One slight annoyance is that there&#8217;s a race condition during boot where <code>dnsmasq</code> startup will usually fail due to networking not being ready yet. I&#8217;m working around this using a systemd timer that just tries startup again a few seconds after boot:</p>
+<pre><code># &#47;etc&#47;systemd&#47;system&#47;dnsmasq-fix.timer
+[Unit]
+Description=Delayed retry for dnsmasq
+
+[Timer]
+OnBootSec=40
+Unit=dnsmasq.service
+
+[Install]
+WantedBy=timers.target
+</code></pre>
+</main>
+<footer>
+  <p>Copyright &copy 2015-2026 John Finigan</p>
+</footer>
+</body>
+</html>
