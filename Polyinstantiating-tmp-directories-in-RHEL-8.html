@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="polyinstantiating-tmp-directories-in-modern-rhel">Polyinstantiating tmp Directories in Modern RHEL</h2>
 <p>Polyinstantiation is a Linux security feature for giving each user a private virtual copy of normally globally visible directories such as <code>&#47;tmp</code>. Linux kernel namespaces are used to map each user&#8217;s view of the polyinstantiated directory to a separate directory in the default namespace. This is useful for eliminating the side channel that allows users to defeat administratively set file permissions and share data inappropriately by copying it into world writable directories such as <code>&#47;tmp</code>. When <code>&#47;tmp</code> is polyinstantiated, the user sees his own data in <code>&#47;tmp</code> and nothing else.</p>
 <p>This is similar to the systemd <code>PrivateTmp</code> hardening feature, but implemented differently.</p>

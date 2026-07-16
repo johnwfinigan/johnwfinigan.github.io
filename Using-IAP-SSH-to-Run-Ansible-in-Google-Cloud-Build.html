@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="using-iap-ssh-to-run-ansible-in-google-cloud-build-triggers">Using IAP SSH to run Ansible in Google Cloud Build Triggers</h2>
 <p>Google pitches Cloud Build as the &#8220;serverless CI&#47;CD platform&#8221; for Google Cloud (GCP). It&#8217;s easy to use for infrastructure tasks like deploying cloud infrastructure using Terraform. This is great for ensuring that your Terraform build environment is repeatable and not tied to implicit state on a build machine. </p>
 <p>When a Cloud Build run is triggered, GCP runs a container of your choosing on a network that is, by default, not part of your customer-controlled VPC network. By default, traffic egressing from your Cloud Build will be seen by your instances as originating from a public IP of Google&#8217;s choosing. This can be a problem if you want to use Cloud Build to run Ansible to configure your instances, since Ansible will typically log in to your instances using SSH. You could allow SSH traffic in from any public IP, but this is bad security practice if your only reason for doing this is admin access.</p>

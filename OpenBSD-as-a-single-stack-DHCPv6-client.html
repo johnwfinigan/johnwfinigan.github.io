@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="openbsd-as-a-single-stack-dhcpv6-client">OpenBSD as a single-stack DHCPv6 client</h2>
 <p>I wanted to try running OpenBSD as a single-stack IPv6 host on a network where <code>dnsmasq</code> provides stateful DHCPv6. This is a less common deployment case than using SLAAC with or without stateless DHCPv6, but it has the advantage that it allows <code>dnsmasq</code> to register a FQDN for the client in its local DNS, so that the client can be accessed by name on the local LAN without further configuration. My relevant <code>dnsmasq</code> config is this:</p>
 <pre><code>enable-ra

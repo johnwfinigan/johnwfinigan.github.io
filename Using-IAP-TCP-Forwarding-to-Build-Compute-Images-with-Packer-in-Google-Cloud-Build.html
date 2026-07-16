@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="using-ssh-over-iap-tcp-forwarding-to-build-compute-images-with-packer-in-google-cloud-build">Using SSH over IAP TCP Forwarding to Build Compute Images with Packer in Google Cloud Build</h2>
 <p><a href="./Using-IAP-SSH-to-Run-Ansible-in-Google-Cloud-Build.html">Previously I wrote</a> about using Google Identity Aware Proxy based SSH to run Ansible within Google Cloud Build without needing a firewall penetration or network peering between Cloud Build and the target VMs, and without the target VMs needing public IPs. In this post I&#8217;ll show how to use IAP TCP forwarding to build compute images using Hashicorp Packer running in Cloud Build, also without direct networking between Cloud Build and the ephemeral VM that Packer uses for the image build.</p>
 <p>That previous post documents the necessary IAM and firewall rules needed for full IAP SSH to work, however here we are using IAP TCP forwarding, and SSH authentication is being handled by Packer itself instead of OSLogin, so only a subset of the requirements need to be met: the GCE firewall must allow IAP to communicate with the VM, and the Cloud Build service account must have IAM rights to start a tunnel to the VM (<code>roles&#47;iap.tunnelResourceAccessor</code>)</p>

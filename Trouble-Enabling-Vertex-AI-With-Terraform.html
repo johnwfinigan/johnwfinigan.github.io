@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="trouble-enabling-vertex-ai-with-terraform">Trouble Enabling Vertex AI With Terraform</h2>
 <p>Since at least 2023 some of my older Terraform code bases for Google Cloud would fail when trying to enable the Vertex AI (aiplatform.googleapis.com) or Vertex AI Workbench (notebooks.googleapis.com) APIs on a project. The projects were created with the Google Project Factory Terraform module, but I suspect that the problem is not inherent to that module. Enabling the API by hand would succeed, so while this was annoying, that is how I would work around it. After a one time manual API enablement, the Terraform code would apply cleanly.</p>
 <p>The error code, <code>SERVICE_CONFIG_NOT_FOUND_OR_PERMISSION_DENIED</code>, seemed like it would be a good lead, but didn&#8217;t lead to many search engine hits. There were some suggestions that the identity Terraform was running as needed to have Service Usage Admin on the project, and while that may be needed, it was not a fix in my case.</p>

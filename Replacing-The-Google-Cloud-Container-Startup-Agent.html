@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="replacing-the-google-cloud-container-startup-agent">Replacing The Google Cloud Container Startup Agent</h2>
 <p>I have a cloud cost reporting batch job that has been running every morning for many years. It emails us a cost summary of our GCP Subaccounts and Azure Subscriptions daily. In this way we reduce the chances of the infinite scalability of the cloud coming into conflict with the finite scalability of our wallets.</p>
 <p>For Enterprise Reasons, it&#8217;s more convenient if it runs from a static internal IP, so it runs on straight GCE, using instance schedules to start it every morning and shut it down shortly after. On boot, a reporting container starts and runs to completion and then the day&#8217;s work is done.</p>

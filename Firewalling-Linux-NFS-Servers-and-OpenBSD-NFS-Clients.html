@@ -14,7 +14,6 @@
   </header>
 
 <main>
-
 <h2 id="firewalling-linux-nfs-servers-and-openbsd-nfs-clients">Firewalling Linux NFS Servers and OpenBSD NFS Clients</h2>
 <p>OpenBSD supports only NFS v3. It does not support NFS v4. While NFS v4 requires only port 2049&#47;tcp to be open between clients and servers, NFS v3 typically requires three or four ports open between a client and a server, and most of these are dynamically chosen and have no fixed port number. NFS v3 predates the widespread use of firewalls and was not designed to be easily firewalled.</p>
 <p>In order to firewall NFS v3, the server must be configured to run all needed NFS v3 services on fixed ports. On an OpenBSD client, no special configuration is required on the mount. However, I recommend configuring the mount to run over tcp, both to make firewalling easier and for general robustness. An OpenBSD fstab entry like the following is enough:</p>
