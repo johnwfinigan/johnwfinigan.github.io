@@ -67,7 +67,6 @@ lowdown -s "$temp_index_md" |
   sed '$d' | sed '$d' >"$temp_html"
 cat "$temp_html" src/footer >"dst/index.html"
 
-
 siteurl="$(head -n1 src/siteurl)"
 
 #
@@ -81,11 +80,10 @@ awk -F^ -v site="$siteurl" '{ printf "  <url>\n    <loc>%s%s</loc>\n  </url>\n",
 echo '</urlset>' >>"$temp_sitemap"
 cat "$temp_sitemap" >sitemap.xml
 
-
 #
 # atom feed generation
 #
-cat <<'HERE' > "$temp_atom"
+cat <<'HERE' >"$temp_atom"
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
@@ -93,9 +91,9 @@ cat <<'HERE' > "$temp_atom"
   <link rel="self" type="application/atom+xml" href="https://johnwfinigan.github.io/atom.xml"/>
 HERE
 
-awk -F^ '{printf "  <updated>%sT00:00:00Z</updated>\n", $1; exit}' < "$temp_index_sorted" >> "$temp_atom"
+awk -F^ '{printf "  <updated>%sT00:00:00Z</updated>\n", $1; exit}' <"$temp_index_sorted" >>"$temp_atom"
 
-cat <<'HERE' >> "$temp_atom"
+cat <<'HERE' >>"$temp_atom"
   <author>
     <name>John Finigan</name>
   </author>
@@ -106,20 +104,19 @@ HERE
 while IFS='^' read -r entrydate title filename; do
   entryname="${filename%%.html}"
   # shellcheck disable=SC2129
-  printf '<entry>\n' >> "$temp_atom"
-  printf '<id>tag:johnwfinigan.github.io,%s:%s</id>\n' "$entrydate" "$entryname" >> "$temp_atom"
-  printf '<title>%s</title>\n' "$title" >> "$temp_atom"
-  printf '<updated>%sT00:00:00Z</updated>\n' "$entrydate" >> "$temp_atom"
-  printf '<author> <name>John Finigan</name> </author>\n' >> "$temp_atom"
-  printf '<content>\n' >> "$temp_atom"
+  printf '<entry>\n' >>"$temp_atom"
+  printf '<id>tag:johnwfinigan.github.io,%s:%s</id>\n' "$entrydate" "$entryname" >>"$temp_atom"
+  printf '<title>%s</title>\n' "$title" >>"$temp_atom"
+  printf '<updated>%sT00:00:00Z</updated>\n' "$entrydate" >>"$temp_atom"
+  printf '<author> <name>John Finigan</name> </author>\n' >>"$temp_atom"
+  printf '<content>\n' >>"$temp_atom"
   lowdown -tman "src/${entryname}.md" | mandoc | col -b |
     sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g' |
-    sed '1d' | sed '$d' >> "$temp_atom"
-  printf '</content></entry>\n' >> "$temp_atom"
-done < "$temp_index_sorted"
-printf '</feed>\n' >> "$temp_atom"
-cat "$temp_atom" > atom.xml
-
+    sed '1d' | sed '$d' >>"$temp_atom"
+  printf '</content></entry>\n' >>"$temp_atom"
+done <"$temp_index_sorted"
+printf '</feed>\n' >>"$temp_atom"
+cat "$temp_atom" >atom.xml
 
 #
 # cleanup and deploy
