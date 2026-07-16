@@ -33,7 +33,11 @@ for md in src/*.md; do
   # replace body tag with custom header for css
   # delete last 2 lines (/body /html) for custom footer
   lowdown -m lang:en-US -s "$md" |
-    perl -pe 's/^<body>$/`cat src\/header`/e' |
+    sed '
+        /^<body>$/ {
+            r src/header
+            d
+        }' |
     sed '$d' | sed '$d' >"$temp_html"
 
   # create html filename, append source page and footer
@@ -63,7 +67,11 @@ awk -F^ '{ printf "* %s: [%s](%s)\n", $1, $2, $3 }' <"$temp_index_sorted" >>"$te
 
 # make html index page
 lowdown -s "$temp_index_md" |
-  perl -pe 's/^<body>$/`cat src\/header`/e' |
+  sed '
+        /^<body>$/ {
+            r src/header
+            d
+        }' |
   sed '$d' | sed '$d' >"$temp_html"
 cat "$temp_html" src/footer >"dst/index.html"
 
