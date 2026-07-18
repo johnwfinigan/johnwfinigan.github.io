@@ -1,6 +1,6 @@
 #!/bin/ksh
 
-# Copyright (c) 2021-2023 John Finigan
+# Copyright (c) 2021-2026 John Finigan
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -103,7 +103,7 @@ cat <<'HERE' >>"$temp_atom"
     <name>John Finigan</name>
   </author>
   <id>tag:johnwfinigan.github.io,2015-09-14:blog</id>
-  <rights> Copyright 2015-2023 John Finigan </rights>
+  <rights> Copyright 2015-2026 John Finigan </rights>
 HERE
 
 while IFS='^' read -r entrydate title filename; do
