@@ -25,20 +25,24 @@ temp_atom=$(mktemp)
 mkdir -p dst
 rm -f dst/*.html
 
-#
-# content pages generation
-#
-for md in src/*.md; do
+run_lowdown() {
   # convert md to html
   # replace body tag with custom header for css
   # delete last 2 lines (/body /html) for custom footer
-  lowdown -m lang:en-US -s "$md" |
+  lowdown -m lang:en-US -s "$1" |
     sed '
         /^<body>$/ {
             r src/header
             d
         }' |
-    sed '$d' | sed '$d' >"$temp_html"
+    sed '$d' | sed '$d'
+}
+
+#
+# content pages generation
+#
+for md in src/*.md; do
+  run_lowdown "$md" >"$temp_html"
 
   # create html filename, append source page and footer
   htm=$(basename "$md" .md).html
@@ -66,13 +70,7 @@ sort -r -k1 -t^ "$temp_index" >"$temp_index_sorted"
 awk -F^ '{ printf "* %s: [%s](%s)\n", $1, $2, $3 }' <"$temp_index_sorted" >>"$temp_index_md"
 
 # make html index page
-lowdown -s "$temp_index_md" |
-  sed '
-        /^<body>$/ {
-            r src/header
-            d
-        }' |
-  sed '$d' | sed '$d' >"$temp_html"
+run_lowdown "$temp_index_md" >"$temp_html"
 cat "$temp_html" src/footer >"dst/index.html"
 
 siteurl="$(head -n1 src/siteurl)"
