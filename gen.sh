@@ -16,7 +16,6 @@
 
 set -eu
 
-temp_html=$(mktemp)
 temp_index=$(mktemp)
 temp_index_md=$(mktemp)
 temp_index_sorted=$(mktemp)
@@ -28,25 +27,27 @@ rm -f dst/*.html
 run_lowdown() {
   # convert md to html
   # replace body tag with custom header for css
-  # delete last 2 lines (/body /html) for custom footer
+  # delete /body and subsequent lines
+  # (must delete /body /html to add custom footer)
   lowdown -m lang:en-US -s "$1" |
     sed '
         /^<body>$/ {
             r src/header
             d
-        }' |
-    sed '$d' | sed '$d'
+        }
+        /^<\/body>$/,$d
+    '
+  # add custom footer
+  cat src/footer
 }
 
 #
 # content pages generation
 #
 for md in src/*.md; do
-  run_lowdown "$md" >"$temp_html"
-
-  # create html filename, append source page and footer
+  # create html filename and render html
   htm=$(basename "$md" .md).html
-  cat "$temp_html" src/footer >"dst/${htm}"
+  run_lowdown "$md" >"dst/${htm}"
 
   # create input for index generator
   day=$(lowdown -X date "$md")
@@ -70,14 +71,12 @@ sort -r -k1 -t^ "$temp_index" >"$temp_index_sorted"
 awk -F^ '{ printf "* %s: [%s](%s)\n", $1, $2, $3 }' <"$temp_index_sorted" >>"$temp_index_md"
 
 # make html index page
-run_lowdown "$temp_index_md" >"$temp_html"
-cat "$temp_html" src/footer >"dst/index.html"
-
-siteurl="$(head -n1 src/siteurl)"
+run_lowdown "$temp_index_md" >"dst/index.html"
 
 #
 # site map generation
 #
+siteurl="$(head -n1 src/siteurl)"
 cat <<'HERE' >"$temp_sitemap"
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -127,7 +126,7 @@ cat "$temp_atom" >atom.xml
 #
 # cleanup and deploy
 #
-rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_html" "$temp_sitemap" "$temp_atom"
+rm -f "$temp_index_md" "$temp_index" "$temp_index_sorted" "$temp_sitemap" "$temp_atom"
 cp dst/*.html .
 
 # date -u '+%Y-%m-%dT%H:%M:%SZ'
